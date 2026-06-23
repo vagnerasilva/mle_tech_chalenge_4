@@ -20,14 +20,17 @@ A arquitetura integra:
 
 A API está deployada em **[https://mle-tech-chalenge-4.onrender.com/](https://mle-tech-chalenge-4.onrender.com/)** via Render.com
 
+**Endpoints Principais:**
+- **Health Check**: https://mle-tech-chalenge-4.onrender.com/health
+- **Root Endpoint**: https://mle-tech-chalenge-4.onrender.com/
 - **Documentação Swagger**: https://mle-tech-chalenge-4.onrender.com/docs
 - **ReDoc**: https://mle-tech-chalenge-4.onrender.com/redoc
-- **Health Check**: https://mle-tech-chalenge-4.onrender.com/health
 
-### 📊 Dashboard de Monitoramento
+### 📊 Dashboard de Monitoramento em Produção
 
-O dashboard de monitoramento e análise de performance é desenvolvido em **Streamlit** em repositório separado:
+O dashboard de monitoramento está **disponível em produção**:
 
+- **URL**: [https://mle-tech-chalenge-4-streamlit.onrender.com/](https://mle-tech-chalenge-4-streamlit.onrender.com/)
 - **Repositório**: [mle_tech_chalenge_4_streamlit](https://github.com/vagnerasilva/mle_tech_chalenge_4_streamlit)
 - **Features**:
   - 📈 Visualização de predições vs. valores reais
@@ -46,6 +49,17 @@ O dashboard de monitoramento e análise de performance é desenvolvido em **Stre
 ✓ Disponibilizar endpoints de predição em lote e single-shot  
 ✓ Monitorar performance e métricas do modelo em produção  
 ✓ Garantir reprodutibilidade via Docker e documentação clara  
+
+---
+
+## ⚡ Acesso Rápido (Produção)
+
+| O quê | Link | Descrição |
+|--------|------|-----------|
+| **API FastAPI** | [https://mle-tech-chalenge-4.onrender.com/](https://mle-tech-chalenge-4.onrender.com/) | Endpoints para predição e inferência |
+| **Dashboard** | [https://mle-tech-chalenge-4-streamlit.onrender.com/](https://mle-tech-chalenge-4-streamlit.onrender.com/) | Visualização de métricas e performance |
+| **Docs Swagger** | [https://mle-tech-chalenge-4.onrender.com/docs](https://mle-tech-chalenge-4.onrender.com/docs) | Documentação interativa |
+| **Health Check** | [https://mle-tech-chalenge-4.onrender.com/health](https://mle-tech-chalenge-4.onrender.com/health) | Status da API |
 
 ---
 
@@ -87,47 +101,142 @@ Os dados passam por transformações essenciais antes do treinamento:
 
 ## 🧠 Modelo LSTM
 
+### 📓 Notebook de Desenvolvimento
+O modelo LSTM é desenvolvido e validado no notebook disponível em [docs/fase4_pos_mlet_organizado_(1).ipynb](docs/fase4_pos_mlet_organizado_(1).ipynb).
+
+**Este notebook inclui:**
+- Coleta de dados via yfinance (NVDA como exemplo)
+- Feature engineering com 17 indicadores técnicos
+- Busca de hiperparâmetros com TimeSeriesSplit (5 folds)
+- Treinamento robusto com callbacks avançados
+- Avaliação completa com múltiplas métricas
+
 ### Arquitetura
-O modelo LSTM é ideal para capturar dependências de longo prazo em séries temporais financeiras.
+O modelo usa **Bidirectional LSTM** para capturar padrões em ambas as direções temporais, com regularização L2 e BatchNormalization para estabilidade e redução de overfitting.
 
-**Camadas principais:**
+**Camadas (Otimizadas via TimeSeriesSplit):**
 ```
-Input (Batch, Seq_Length, Features)
+Input (Batch, LOOK_BACK, 17 Features)
     ↓
-LSTM Layer 1 (units=64, return_sequences=True)
+Bidirectional LSTM (units, return_sequences=True, L2 regularizer)
     ↓
-Dropout (rate=0.2)
+BatchNormalization + Dropout
     ↓
-LSTM Layer 2 (units=32, return_sequences=False)
+LSTM (units // 2, return_sequences=True, L2 regularizer)
     ↓
-Dropout (rate=0.2)
+BatchNormalization + Dropout
     ↓
-Dense Layer (units=16, activation='relu')
+LSTM (units // 4, return_sequences=False)
     ↓
-Output Layer (units=1, activation='linear')
+BatchNormalization + Dropout (reduzido)
     ↓
-Predição de Preço (escalar)
+Dense Layer (32, activation='relu', L2 regularizer)
+    ↓
+Output Layer (1) — Predição de Preço
 ```
 
-### Hiperparâmetros
-- **Epochs**: 50-100 (com early stopping)
-- **Batch Size**: 32-64
+### Feature Engineering (17 Features)
+O modelo utiliza **17 features** construídas a partir dos dados OHLCV:
+
+| Categoria | Features | Descrição |
+|-----------|----------|----------|
+| **Preço** | Close, High, Low, Open | OHLC direto |
+| **Volume** | Volume, Volume_MA_7, Volume_Ratio | Liquidez e intensidade |
+| **Tendência** | MA_7, MA_21, Ratio_MA7_MA21, Return_1d | Médias móveis e retorno |
+| **Volatilidade** | Volatility_7d, RSI_14, MACD, MACD_Signal | Indicadores técnicos |
+| **Bandas** | BB_Upper, BB_Lower | Bandas de Bollinger (20 dias) |
+
+**Preprocessamento:**
+- ✅ `RobustScaler` fit apenas no treino (sem data leakage)
+- ✅ Sequências deslizantes com `LOOK_BACK` otimizado (60+ dias)
+- ✅ Split temporal: 70% treino | 15% validação | 15% teste
+
+### Hiperparâmetros Otimizados
+- **LOOK_BACK**: 60-90 dias (otimizado via TimeSeriesSplit)
+- **Units**: 64-128 (camada Bidirectional)
+- **Dropout**: 0.2-0.3 (com redução nas camadas posteriores)
+- **Batch Size**: 32
 - **Learning Rate**: 0.001 (Adam optimizer)
-- **Sequence Length**: 60 dias
-- **Loss Function**: Mean Squared Error (MSE)
-- **Validation Split**: 10%
+- **Loss Function**: Huber (robusto a outliers)
+- **Validation Split**: 15% independente
 
 ### Métricas de Avaliação
-- **MAE (Mean Absolute Error)** — erro médio absoluto
-- **RMSE (Root Mean Squared Error)** — raiz do erro quadrático médio
-- **MAPE (Mean Absolute Percentage Error)** — erro percentual absoluto médio
-- **R² Score** — coeficiente de determinação
 
-### Treinamento e Checkpoints
-- Logs estruturados salvos em `logs/train.log`
-- Checkpoints automáticos em `models/checkpoints/` a cada epoch
-- Melhor modelo persistido em `models/best_model.h5`
-- Early stopping para evitar overfitting
+| Métrica | Descrição | Escala |
+|---------|-----------|--------|
+| **MAE** | Erro Médio Absoluto | USD |
+| **RMSE** | Raiz do Erro Quadrático Médio | USD |
+| **MAPE** | Erro Percentual Absoluto Médio | % |
+| **Directional Accuracy** | Taxa de acerto da direção do movimento | % |
+
+**Exemplo de Resultado (Teste):**
+```
+MAE:                $X.XXXX
+RMSE:               $X.XXXX
+MAPE:               X.XX%
+Direcional Accuracy: XX.XX%
+```
+
+Todas as métricas são calculadas na **escala original (USD)** para melhor interpretação.
+
+### 🔄 Pipeline: Do Notebook para a API
+
+**Fluxo de Produção:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. Notebook (docs/fase4_pos_mlet_organizado_(1).ipynb)    │
+│     ✓ Carrega dados via yfinance                            │
+│     ✓ Constrói 17 features com engenharia de features      │
+│     ✓ Busca hiperparâmetros (TimeSeriesSplit 5-fold)       │
+│     ✓ Treina Bidirectional LSTM com callbacks              │
+│     ✓ Salva: best_lstm_model.keras + scaler.pkl           │
+└────────────────────┬────────────────────────────────────────┘
+                     │ Artifacts gerados
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│  2. Produção (models/)                                       │
+│     ├── best_lstm_model.keras  (modelo treinado)           │
+│     └── scaler.pkl             (RobustScaler persistido)   │
+└────────────────────┬────────────────────────────────────────┘
+                     │ Carregado na inicialização
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│  3. FastAPI (app/services/model.py)                         │
+│     ✓ Carrega modelo e scaler                               │
+│     ✓ Preprocessa input com as mesmas 17 features          │
+│     ✓ Normaliza com scaler salvo (consistência)            │
+│     ✓ Realiza predição com LOOK_BACK sequências            │
+│     ✓ Desnormaliza resultado para USD                      │
+└────────────────────┬────────────────────────────────────────┘
+                     │ Response
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│  4. Dashboard (Streamlit)                                   │
+│     📊 Visualiza predições vs. reais                        │
+│     📈 Monitora métricas (MAE, RMSE, MAPE, Directional)   │
+│     ⚡ Tempo de resposta da API                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Garantias de Consistência:**
+- ✅ Features construídas identicamente (mesmo código)
+- ✅ RobustScaler persistent preserva parâmetros fit
+- ✅ LOOK_BACK e architecture idênticos entre notebook e API
+- ✅ Sem divergência entre treinamento e inferência
+
+### Estratégia de Treinamento
+
+**Callbacks Avançados:**
+- 🛑 **EarlyStopping** (patience=15): interrompe se `val_loss` não melhorar por 15 épocas
+- 📉 **ReduceLROnPlateau** (factor=0.5, patience=7): divide learning rate em platôs
+- 💾 **ModelCheckpoint**: salva melhor modelo automaticamente em `best_lstm_model.keras`
+
+**Validação:**
+- ✅ **TimeSeriesSplit (5-fold)**: busca de hiperparâmetros mantendo ordem temporal
+- ✅ Épocas até 150 com early stopping dinâmico
+- ✅ Logs estruturados em `logs/train.log`
+- ✅ Checkpoints em `models/checkpoints/`
 
 ---
 
@@ -153,6 +262,10 @@ app/
 ```
 
 ### 📡 Endpoints da API
+
+> **Nota Importante:** O modelo LSTM carregado nestes endpoints é **exatamente o modelo treinado no notebook** [docs/fase4_pos_mlet_organizado_(1).ipynb](docs/fase4_pos_mlet_organizado_(1).ipynb). 
+> 
+> Quando a API inicia, carrega o arquivo `models/best_lstm_model.keras` (melhor checkpoint do treinamento) e reutiliza o `RobustScaler` persistido para normalização consistente.
 
 #### **Core — Health & Status**
 
@@ -319,21 +432,56 @@ curl -X POST http://localhost:8000/api/v1/train/start \
 
 ## 🛠️ Tecnologias
 
-| Componente | Tecnologia | Versão |
-|------------|------------|---------|
-| **Linguagem** | Python | 3.10+ |
-| **API** | FastAPI | 0.104+ |
-| **Deep Learning** | TensorFlow | 2.13+ |
-| **Dados** | Pandas | 2.0+ |
-| **Requisição HTTP** | yfinance | 0.2.32+ |
-| **Testes** | pytest | 7.4+ |
-| **Logging** | Python logging | built-in |
+| Componente | Tecnologia | Versão | Uso |
+|------------|------------|---------|-----|
+| **Linguagem** | Python | 3.10+ | Desenvolvimento |
+| **API** | FastAPI | 0.104+ | Servidor web |
+| **Deep Learning** | TensorFlow + Keras | 2.13+ | Modelo LSTM Bidirectional |
+| **Preprocessamento** | scikit-learn | 1.3+ | RobustScaler, feature engineering |
+| **Dados** | Pandas | 2.0+ | Manipulação de séries temporais |
+| **Requisição HTTP** | yfinance | 0.2.32+ | Coleta de dados de ações |
+| **Testes** | pytest | 7.4+ | Testes unitários e integração |
+| **Logging** | Python logging | built-in | Logs estruturados |
+
+**Dependências do Modelo:**
+- `TensorFlow>=2.13` — Bidirectional LSTM, BatchNormalization, Callbacks
+- `keras>=2.13` — Carregamento do modelo `.keras` (novo formato padrão)
+- `scikit-learn>=1.3` — RobustScaler (fit no notebook, used na API)
+- `numpy` — Operações matemáticas nas sequências
 
 ---
 
 ## 📦 Como Rodar
 
-### **Opção 1: Com Docker (Recomendado)**
+### **Opção 0: Treinar o Modelo (Desenvolvimento)**
+
+Se quiser reproduzir o treinamento do modelo localmente:
+
+```bash
+# 1. Clonar e setup
+git clone <repo-url>
+cd mle_tech_chalenge_4
+python -m venv .venv
+source .venv/bin/activate  # macOS/Linux
+pip install -r requirements.txt
+
+# 2. Abrir o Jupyter Notebook
+jupyter notebook docs/fase4_pos_mlet_organizado_(1).ipynb
+
+# 3. Executar todas as células para:
+#    - Baixar dados via yfinance
+#    - Fazer feature engineering
+#    - Buscar hiperparâmetros (TimeSeriesSplit)
+#    - Treinar o Bidirectional LSTM
+#    - Salvar modelo em models/best_lstm_model.keras
+#    - Gerar métricas e visualizações
+```
+
+**Nota:** Este processo pode levar 10-30 minutos dependendo do hardware (GPU recomendada).
+
+### **Opção 1: Rodar a API (Com Modelo Pré-treinado)**
+
+```bash
 # 1. Clonar repositório
 git clone <repo-url>
 cd mle_tech_chalenge_4
@@ -354,11 +502,33 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 pytest -v --cov=app tests/
 ```
 
+A API carregará o modelo treinado (`models/best_lstm_model.keras`) ao iniciar.
+
+### Frontend Integrado (React)
+
+Um frontend React leve foi adicionado em `app/static` e é servido pela API. Após iniciar a API localmente, abra:
+
+```
+http://localhost:8000/web
+```
+
+Ou acesse diretamente os assets estáticos em:
+
+```
+http://localhost:8000/static/index.html
+```
+
+O painel permite enviar requisições ao endpoint `/api/v1/predict/single`, visualizar predições e testar o `health` rapidamente.
+
 ---
 
 ## 📝 Exemplos de Uso
 
-> **Nota**: Todos os exemplos abaixo usam `localhost:8000`. Para usar a API em produção, substitua por `https://mle-tech-chalenge-4.onrender.com/`
+### Produção (Render.com)
+> Use `https://mle-tech-chalenge-4.onrender.com` para a API em produção
+
+### Local (Desenvolvimento)
+> Use `http://localhost:8000` para ambiente local
 
 ### **Health Check**
 ```bash
@@ -393,6 +563,34 @@ curl -X POST http://localhost:8000/api/v1/train/start \
 curl http://localhost:8000/api/v1/metrics/latest
 ```
 
+### 🔄 Entendendo o Fluxo de Predição
+
+Quando você faz uma requisição POST para `/api/v1/predict/single`, internamente acontece:
+
+1. **Fetch de Dados** (via yfinance)
+   - Baixa últimas N séries de preços (últimos 60+ dias)
+   - Mesma fonte que o notebook utiliza
+
+2. **Feature Engineering**
+   - Constrói as mesmas **17 features** (MA_7, MA_21, RSI_14, MACD, Bollinger Bands, etc.)
+   - Código idêntico ao do notebook (`app/services/data.py`)
+
+3. **Normalização**
+   - Aplica o `RobustScaler` salvo do treinamento
+   - Garante consistência: mesmos parâmetros (min, max, quartis)
+   - **Sem data leakage** — não refaz o fit nos dados de predição
+
+4. **Predição LSTM**
+   - Carrega o modelo `best_lstm_model.keras` (salvo do notebook)
+   - Usa o mesmo `LOOK_BACK` otimizado
+   - Bidirectional LSTM + BatchNorm + Regularização L2
+
+5. **Desnormalização**
+   - Converte predição de volta para USD
+   - Usa inverso do scaler persistido
+
+**Resultado:** Predição consistente com métricas de validação do notebook.
+
 ---
 
 ## ✅ Testes
@@ -419,7 +617,49 @@ pytest -q --tb=short
 
 ---
 
-## 📚 Documentação da API
+## � Reprodutibilidade e Rastreabilidade do Modelo
+
+### Como Rastrear o Modelo da API até o Notebook
+
+1. **API Carrega:** `models/best_lstm_model.keras` + `scaler.pkl`
+2. **Estes artifacts foram salvos por:** `docs/fase4_pos_mlet_organizado_(1).ipynb`
+3. **Reproduzir exatamente:** Execute todas as células do notebook com o mesmo hardware/seed
+
+### Verificação de Consistência
+
+```python
+# No notebook (após treino):
+model.save('models/best_lstm_model.keras')
+with open('scaler.pkl', 'wb') as f:
+    pickle.dump(scaler, f)
+
+# Na API (ao carregar):
+model = tf.keras.models.load_model('models/best_lstm_model.keras')
+with open('scaler.pkl', 'rb') as f:
+    scaler = pickle.load(f)
+# → Garante mesmos pesos e parâmetros de normalização
+```
+
+### Seeds e Configurações Fixas
+
+Para garantir reprodutibilidade total:
+```bash
+# No notebook:
+tf.random.set_seed(42)
+np.random.seed(42)
+```
+
+### Artefatos Críticos
+
+| Arquivo | Origem | Célula | Uso |
+|---------|--------|--------|-----|
+| `models/best_lstm_model.keras` | Notebook | ~40 | Carregado na API para inferência |
+| `scaler.pkl` | Notebook | ~18 | Normalização consistente na API e notebook |
+| `logs/train.log` | Notebook | Cada execução | Rastreabilidade completa de hiperparâmetros |
+
+---
+
+## �📚 Documentação da API
 
 Após iniciar a API localmente, acesse a documentação interativa:
 
@@ -440,6 +680,11 @@ A documentação é gerada automaticamente a partir das docstrings FastAPI.
 
 ```
 mle_tech_chalenge_4/
+├── docs/
+│   ├── fase4_pos_mlet_organizado_(1).ipynb  # 🔴 NOTEBOOK PRINCIPAL DO MODELO
+│   ├── db_models.md
+│   ├── scraping_architecture.drawio
+│   └── uml/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py                 # Orquestração da API
@@ -450,19 +695,19 @@ mle_tech_chalenge_4/
 │   │   ├── train.py
 │   │   └── metrics.py
 │   ├── services/
-│   │   ├── model.py            # Gerenciamento de modelo
-│   │   ├── data.py             # Pipeline de dados
+│   │   ├── model.py            # Carrega best_lstm_model.keras
+│   │   ├── data.py             # 17 features (idêntico ao notebook)
 │   │   └── training.py         # Lógica de treinamento
 │   └── schemas/                # Validação Pydantic
 ├── models/
-│   ├── best_model.h5           # Modelo treinado
-│   ├── checkpoints/            # Checkpoints de treino
-│   └── scaler.pkl              # Normalização (Min-Max)
+│   ├── best_lstm_model.keras   # 🟢 MODELO TREINADO (salvo do notebook)
+│   ├── scaler.pkl              # 🟢 SCALER PERSISTIDO (salvo do notebook)
+│   └── checkpoints/            # Checkpoints intermediários
 ├── logs/
 │   ├── train.log               # Logs de treinamento
 │   └── api.log                 # Logs da API
 ├── data/
-│   └── precos_fechamento.csv   # Dataset histórico
+│   └── precos_fechamento.csv   # Dataset histórico (yfinance)
 ├── tests/
 │   ├── test_model.py
 │   ├── test_data.py
@@ -478,6 +723,10 @@ mle_tech_chalenge_4/
 ├── pytest.ini                  # Configuração pytest
 └── README.md                   # Este arquivo
 ```
+
+**Legenda:**
+- 🔴 **NOTEBOOK PRINCIPAL** — Onde o modelo é desenvolvido e validado
+- 🟢 **ARTIFACTS PERSISTIDOS** — Gerados pelo notebook, usados pela API
 
 ---
 
@@ -577,11 +826,19 @@ https://mle-tech-chalenge-4.onrender.com/docs
 - ✅ Logs estruturados em produção
 - ✅ Health checks contínuos
 - ✅ Tempo de resposta: ~50-100ms para predições
-## 📦 Repositórios Relacionados
+## 📦 Repositórios Relacionados & Ambientes em Produção
 
+### Repositórios
 - **[mle_tech_chalenge_4](https://github.com/vagnerasilva/mle_tech_chalenge_4)** — API FastAPI com modelo LSTM *(este repositório)*
 - **[mle_tech_chalenge_4_streamlit](https://github.com/vagnerasilva/mle_tech_chalenge_4_streamlit)** — Dashboard de monitoramento e análise
 - **[mle_tech_chalenge_1](https://github.com/vagnerasilva/mle_tech_chalenge_1)** — API de consulta de livros (projeto anterior)
+
+### Ambientes em Produção (Render.com)
+| Ambiente | URL | Descrição |
+|----------|-----|-----------|
+| **API FastAPI** | [https://mle-tech-chalenge-4.onrender.com/](https://mle-tech-chalenge-4.onrender.com/) | Endpoints de predição e inferência |
+| **Dashboard Streamlit** | [https://mle-tech-chalenge-4-streamlit.onrender.com/](https://mle-tech-chalenge-4-streamlit.onrender.com/) | Monitoramento e análise de performance |
+| **Docs Swagger** | [https://mle-tech-chalenge-4.onrender.com/docs](https://mle-tech-chalenge-4.onrender.com/docs) | Documentação interativa da API |
 
 ---
 
