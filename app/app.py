@@ -16,7 +16,7 @@ if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
-@app.get("/web")
+@app.get("/", include_in_schema=False)
 def serve_frontend():
     index = static_dir / "index.html"
     if index.exists():
@@ -24,9 +24,13 @@ def serve_frontend():
     return {"error": "frontend não encontrado"}
 
 
-@app.get("/")
-def read_root():
-    return {"message": "Hello World"}
+@app.get("/{full_path:path}", include_in_schema=False)
+def serve_spa(full_path: str):
+    # Catch-all to support client-side routing in the SPA.
+    index = static_dir / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return {"error": "frontend não encontrado"}
 
 
 @app.get("/items/{item_id}")
