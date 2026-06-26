@@ -11,7 +11,22 @@ logging.basicConfig(
 
 # 2. Crie uma lista com os códigos das ações
 #lista_acoes = ["PETR4.SA", "VALE3.SA", "ITUB3.SA", "ITUB4.SA"]
-lista_acoes = ["ITUB3.SA"]
+lista_acoes = [ 
+                   "VALE3.SA",
+    "PETR4.SA",
+    "PETR3.SA",
+    "ITUB4.SA",
+    "BBAS3.SA",
+    "BBDC4.SA",
+    "B3SA3.SA",
+    "ABEV3.SA",
+    "WEGE3.SA",
+    "ELET3.SA",
+    "BPAC11.SA",
+    "RENT3.SA",
+    "PRIO3.SA",
+    "EQTL3.SA",
+    "SBSP3.SA"]
 
 # 3. Define a pasta e cria se ela não existir
 pasta_destino = "./data"
