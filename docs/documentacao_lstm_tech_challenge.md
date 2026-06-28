@@ -230,12 +230,12 @@ model = Sequential([
     Bidirectional(LSTM(128, return_sequences=True, kernel_regularizer=l2(1e-6)),
                   input_shape=(30, 5)),
     BatchNormalization(),
-    Dropout(0.1),
+    Dropout(0.3),
     LSTM(64, return_sequences=False, kernel_regularizer=l2(1e-6)),
     BatchNormalization(),
-    Dropout(0.1),
+    Dropout(0.3),
     Dense(16, activation='relu'),
-    Dropout(0.05),
+    Dropout(0.15),
     Dense(1)
 ])
 # Otimizador: Adam(lr=1e-4) | Loss: MAE
