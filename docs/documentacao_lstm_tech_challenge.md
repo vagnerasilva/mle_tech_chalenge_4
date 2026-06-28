@@ -254,7 +254,7 @@ model = Sequential([
 
 ```python
 callbacks = [
-    RealMapeCallback(X_val, y_val, scaler, num_features),   # MAPE em BRL a cada época
+    RealMapeCallback(X_val, y_val, scaler, num_features),   # MAPE em USD a cada época
     EarlyStopping(monitor='val_mape_real', patience=20, restore_best_weights=True),
     ReduceLROnPlateau(monitor='val_mape_real', factor=0.5, patience=5, min_lr=1e-6),
     ModelCheckpoint('best_lstm_model.keras', monitor='val_mape_real', save_best_only=True)
@@ -293,8 +293,8 @@ Melhor val_mape_real : 2.0314%
 ==================================================
   Avaliação do Modelo (Escala Original — USD)
 ==================================================
-  MAE   (Erro Médio Absoluto):           R$0.0297
-  RMSE  (Raiz do Erro Quadrático Médio): R$0.0386
+  MAE   (Erro Médio Absoluto):           $0.0297
+  RMSE  (Raiz do Erro Quadrático Médio): $0.0386
   MAPE  (Erro Percentual Médio):          1.94%
   Dir.  (Acurácia Direcional):            40.31%
 ==================================================
@@ -303,7 +303,7 @@ Melhor val_mape_real : 2.0314%
 
 | Métrica | Valor | Interpretação |
 |---------|-------|--------------|
-| **MAE** | R$0.0297 | Em média, o modelo erra R$0.0297 por pregão — erro baixo em termos absolutos |
+| **MAE** | $0.0297 | Em média, o modelo erra $0.0297 por pregão — erro baixo em termos absolutos |
 | **RMSE** | R$0.0386 | Penaliza erros grandes; valor próximo ao MAE indica ausência de erros extremos isolados |
 | **MAPE** | 1.94% | O modelo erra ~1.94% do preço real em média — referência comum em forecasting financeiro |
 | **Acurácia Direcional** | 40.31% | O modelo acerta a **direção** do movimento em 40.31% dos dias |
