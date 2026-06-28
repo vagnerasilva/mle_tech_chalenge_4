@@ -65,48 +65,65 @@ O dashboard de monitoramento está **disponível em produção**:
 
 ## 📊 Coleta de Dados
 
+Esta seção resume a coleta de dados e o pré-processamento utilizado no notebook principal `modelagem/fase4_MLET.ipynb` e na documentação técnica `docs/documentacao_lstm_tech_challenge.md`.
+
 ### Fonte de Dados
-O script de coleta localizado em `script.py` utiliza a biblioteca **yfinance** para extrair dados históricos de preços de ações diretamente do Yahoo Finance.
+Os dados históricos são obtidos a partir do Yahoo Finance usando a biblioteca **yfinance**. A coleta preserva a sequência temporal dos pregões para evitar vazamento de informação e garantir que o modelo treine apenas com dados do passado.
 
-**Exemplo de uso:**
-```python
-import yfinance as yf
+**Principais features coletadas:**
+- `Open` — preço de abertura
+- `High` — preço máximo do pregão
+- `Low` — preço mínimo do pregão
+- `Close` — preço de fechamento *(target principal)*
+- `Volume` — volume de negociação
 
-# Configurar símbolo da empresa, data de início e fim
-symbol = 'PETR4.SA'  # Petrobras (exemplo)
-start_date = '2018-01-01'
-end_date = '2024-07-20'
+### Pipeline de Coleta e Preparação
+1. **Download via yfinance**
+   - O notebook baixa dados OHLCV para o ticker selecionado.
+   - Caso o retorno venha em MultiIndex, as colunas são desdobradas e o índice de data é convertido em coluna.
+2. **Limpeza básica**
+   - Remoção de linhas com valores faltantes (`dropna()`).
+   - Reset do índice para manter o dataframe limpo.
+3. **Transformação de escala**
+   - Aplica `np.log1p` em `Close`, `High`, `Low`, `Open` e `Volume` para reduzir skewness e suavizar outliers.
+   - Em seguida, utiliza `StandardScaler` ajustado apenas no conjunto de treino e aplicado a validação e teste.
+4. **Split temporal**
+   - O dataset é dividido de forma cronológica em:
+     - **70% treino**
+     - **15% validação**
+     - **15% teste**
+   - O split preserva a ordem dos dados para evitar que o modelo veja o futuro durante o treinamento.
+5. **Criação de sequências**
+   - As janelas de entrada `X` são construídas com `look_back` passos históricos.
+   - O target `y` é o valor normalizado de `Close` no próximo passo.
 
-# Download dos dados
-df = yf.download(symbol, start=start_date, end=end_date)
-```
+### Consistência entre Notebook e API
+O notebook e a API compartilham o mesmo pipeline de dados, garantindo:
+- uso das mesmas features OHLCV
+- normalização com scaler persistido do treino
+- processamento cronológico sem shuffle
+- inversão de escala (`inverse_transform` + `np.expm1`) para métricas em reais
 
-### Dados Coletados
-Para cada dia de pregão, capturamos:
-- **Open** — preço de abertura
-- **High** — preço máximo do dia
-- **Low** — preço mínimo do dia
-- **Close** — preço de fechamento *(target)*
-- **Volume** — volume de transações
-- **Adj Close** — preço ajustado
-
-### Pré-processamento
-Os dados passam por transformações essenciais antes do treinamento:
-- **Normalização**: Escalamento min-max para valores entre [0, 1]
-- **Limpeza**: Remoção de valores faltantes e outliers
-- **Janelas deslizantes**: Criação de sequências temporais (ex.: 60 dias → 1 predição)
-- **Train/Val/Test split**: Divisão mantendo ordem temporal (80% treino, 10% validação, 10% teste)
+### Referências no Repositório
+- `modelagem/fase4_MLET.ipynb` — notebook de desenvolvimento e validação do modelo
+- `docs/documentacao_lstm_tech_challenge.md` — documentação técnica do fluxo de coleta e modelagem
+- `docs/oquefazer.md` — notas de acompanhamento e próximos passos
 
 ---
 
 ## 🧠 Modelo LSTM
 
 ### 📓 Notebook de Desenvolvimento
-O modelo LSTM é desenvolvido e validado no notebook disponível em [docs/fase4_pos_mlet_organizado_(1).ipynb](docs/fase4_pos_mlet_organizado_(1).ipynb).
+O modelo LSTM é desenvolvido e validado no notebook principal localizado em `modelagem/fase4_MLET.ipynb` e documentado em `docs/documentacao_lstm_tech_challenge.md`.
+
+**Principais arquivos de suporte:**
+- `modelagem/fase4_MLET.ipynb` — notebook completo com coleta de dados, pré-processamento, busca de hiperparâmetros, treinamento, avaliação e inferência.
+- `docs/documentacao_lstm_tech_challenge.md` — documentação técnica detalhada do fluxo de modelagem e resultados.
+- `docs/oquefazer.md` — notas de acompanhamento e próximos passos da modelagem.
 
 **Este notebook inclui:**
 - Coleta de dados via yfinance (NVDA como exemplo)
-- Feature engineering com 17 indicadores técnicos
+- Feature engineering com 5 indicadores técnicos
 - Busca de hiperparâmetros com TimeSeriesSplit (5 folds)
 - Treinamento robusto com callbacks avançados
 - Avaliação completa com múltiplas métricas
@@ -116,7 +133,7 @@ O modelo usa **Bidirectional LSTM** para capturar padrões em ambas as direçõe
 
 **Camadas (Otimizadas via TimeSeriesSplit):**
 ```
-Input (Batch, LOOK_BACK, 17 Features)
+Input (Batch, LOOK_BACK, 5 Features)
     ↓
 Bidirectional LSTM (units, return_sequences=True, L2 regularizer)
     ↓
@@ -263,7 +280,7 @@ app/
 
 ### 📡 Endpoints da API
 
-> **Nota Importante:** O modelo LSTM carregado nestes endpoints é **exatamente o modelo treinado no notebook** [docs/fase4_pos_mlet_organizado_(1).ipynb](docs/fase4_pos_mlet_organizado_(1).ipynb). 
+> **Nota Importante:** O modelo LSTM carregado nestes endpoints é **exatamente o modelo treinado no notebook** `modelagem/fase4_MLET.ipynb`.
 > 
 > Quando a API inicia, carrega o arquivo `models/best_lstm_model.keras` (melhor checkpoint do treinamento) e reutiliza o `RobustScaler` persistido para normalização consistente.
 
@@ -353,42 +370,50 @@ curl -X POST http://localhost:8000/api/v1/train/start \
 
 ### Visão Geral
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Cliente / Aplicação                       │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ REST API
-                           ↓
-┌─────────────────────────────────────────────────────────────┐
-│                  FastAPI (uvicorn)                           │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  Routers (health, predict, train, metrics)          │   │
-│  └──────────────────────┬───────────────────────────────┘   │
-│                        │                                     │
-│  ┌────────────────────┴──────────────────────────────┐  │   │
-│  ↓                                                   ↓  │   │
-│ ┌──────────────────┐  ┌──────────────────────────┐   │   │
-│ │ Model Service    │  │ Data Service             │   │   │
-│ │ ✓ Load/Cache     │  │ ✓ Fetch (yfinance)       │   │   │
-│ │ ✓ Inference      │  │ ✓ Normalize/Preprocess   │   │   │
-│ │ ✓ Batch predict  │  │ ✓ Windowing              │   │   │
-│ └────────┬─────────┘  └──────────────┬───────────┘   │   │
-│          │                           │               │   │
-│          ↓                           ↓               │   │
-│  ┌────────────────────────────────────────────┐      │   │
-│  │  Models / Storage                          │      │   │
-│  │  ✓ best_model.h5                           │      │   │
-│  │  ✓ checkpoints/                            │      │   │
-│  │  ✓ scaler (pkl)                            │      │   │
-│  └────────────────────────────────────────────┘      │   │
-└─────────────────────────────────────────────────────┘   │
-                                                           │
-┌───────────────────────────────────────────────────────┐  │
-│  Persistent Storage                                   │  │
-│  ✓ logs/train.log                                     │  │
-│  ✓ data/precos_fechamento.csv                         │  │
-│  ✓ models/                                            │  │
-└───────────────────────────────────────────────────────┘  │
+┌───────────────────────────────────────────────┐
+│              Cliente / Aplicação              │
+└───────────────────────────┬───────────────────┘
+                            │ HTTP/REST
+                            ↓
+┌───────────────────────────────────────────────┐
+│             FastAPI + Uvicorn (app.main)      │
+│  ┌─────────────────────┬─────────────────────┐│
+│  │ Routers             │ Services           ││
+│  │ - health.py         │ - model.py         ││
+│  │ - predict.py        │ - data.py          ││
+│  │ - train.py          │ - training.py      ││
+│  │ - metrics.py        │                     │
+│  └─────────┬───────────┴─────────┬───────────┘│
+│            │                     │            │
+│            ↓                     ↓            │
+│  ┌───────────────────┐  ┌──────────────────┐│
+│  │ Model Artifacts    │  │ Data Pipeline     ││
+│  │ - models/          │  │ - yfinance       ││
+│  │   • best_lstm_model.keras │  │ - preprocessing ││
+│  │   • scaler.pkl      │  │ - feature eng.   ││
+│  │   • checkpoints/    │  │ - windowing      ││
+│  └───────────────────┘  └──────────────────┘│
+└───────────────────────────────────────────────┘
+            │
+            ↓
+┌───────────────────────────────────────────────┐
+│      Frontend estático / UI leve (app/static)│
+│      Recursos servidos pela API               │
+└───────────────────────────────────────────────┘
 ```
+
+### Componentes Principais
+- **API Layer**: recebe requisições REST, valida payloads e retorna respostas JSON.
+- **Routers**: saúde, predição, treinamento e métricas distribuídos em arquivos separados.
+- **Service Layer**: encapsula lógica de inferência (`model.py`), pré-processamento (`data.py`) e treinamento (`training.py`).
+- **Model Artifacts**: a API consome o modelo e o scaler salvos em `models/`.
+- **Data Pipeline**: mantém a mesma preparação de dados do notebook e evita data leakage.
+- **Frontend estático**: arquivos em `app/static/` para interface e demonstração.
+
+### Consistência com o Notebook
+- O notebook `modelagem/fase4_MLET.ipynb` gera os artifacts que a API consome.
+- `docs/documentacao_lstm_tech_challenge.md` descreve o mesmo fluxo de coleta, engenharia de features e validação.
+- A API reutiliza o mesmo `LOOK_BACK`, as mesmas features OHLCV e a mesma lógica de inversão de escala.
 
 ---
 
