@@ -1,2 +1,11 @@
 yfinance
 pandas
+fastapi
+uvicorn
+numpy
+matplotlib
+seaborn
+pandas
+scikit-learn
+tensorflow
+joblib
