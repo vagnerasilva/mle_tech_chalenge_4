@@ -1,8 +1,11 @@
+import os
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.background import BackgroundTask
 from starlette.concurrency import iterate_in_threadpool
@@ -17,7 +20,6 @@ from app.routers import (
     ml,
     model,
     monitoring,
-    nolog,
     predict,
 )
 from app.services.log import write_log
@@ -104,10 +106,6 @@ async def catch_exceptions_middleware(request: Request, call_next):
 
 
 app.include_router(
-    nolog.router,
-    tags=["no_logged"]
-)
-app.include_router(
     log.router,
     tags=["api_logs"]
 )
@@ -148,7 +146,33 @@ app.include_router(
 )
 
 
+# --- Frontend (SPA "Market Pulse", React/Vite) -----------------------------
+# Registrado por último de propósito: as rotas de API acima (todas sob
+# /api/v1, /docs, /api_logs) são resolvidas primeiro; qualquer outro caminho
+# cai no catch-all abaixo, que serve o index.html do SPA (client-side routing).
+STATIC_DIR = Path(__file__).parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/", include_in_schema=False)
+def serve_frontend():
+    index = STATIC_DIR / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return JSONResponse({"error": "frontend não encontrado"}, status_code=404)
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def serve_spa(full_path: str):
+    index = STATIC_DIR / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return JSONResponse({"error": "frontend não encontrado"}, status_code=404)
+
+
 ## Importante pra poder funcionar na porta principal do Render.com
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
