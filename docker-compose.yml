@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    image: stock-lstm-forecast-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+    volumes:
+      - ./models:/code/models
+      - ./data:/code/data
+    restart: unless-stopped

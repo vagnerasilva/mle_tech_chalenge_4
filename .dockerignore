@@ -1,0 +1,17 @@
+.venv
+venv
+__pycache__
+*.pyc
+.git
+.gitignore
+.DS_Store
+tests
+notebooks
+docs
+*.ipynb
+.pytest_cache
+htmlcov
+.coverage
+requirements-dev.txt
+README.md
+app/db/*.db

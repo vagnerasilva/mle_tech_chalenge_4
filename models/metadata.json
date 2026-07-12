@@ -1,0 +1,61 @@
+{
+  "model_name": "lstm_v1",
+  "model_version": "1.0.0",
+  "model_type": "LSTM",
+  "framework": "tensorflow.keras",
+  "symbol": "BBD",
+  "model_path": "models/saved/lstm_v1.keras",
+  "scaler_path": "models/scalers/lstm_v1_scaler.pkl",
+  "data_start_date": "2020-06-01",
+  "data_end_date": "2026-06-01",
+  "sequence_length": 30,
+  "features": ["Close", "High", "Low", "Open", "Volume"],
+  "target": "Close",
+  "preprocessing": {
+    "log1p_columns": ["Close", "High", "Low", "Open", "Volume"],
+    "scaler_type": "StandardScaler",
+    "scaler_fit_on": "train_split_only",
+    "default_volume_approx": 24346082.92
+  },
+  "architecture": [
+    "Bidirectional(LSTM(64, return_sequences=True))",
+    "BatchNormalization",
+    "Dropout(0.3)",
+    "LSTM(64, return_sequences=False)",
+    "BatchNormalization",
+    "Dropout(0.3)",
+    "Dense(16, activation=relu)",
+    "Dropout(0.15)",
+    "Dense(1)"
+  ],
+  "hyperparameters": {
+    "units": 128,
+    "dropout": 0.3,
+    "batch_size": 16,
+    "learning_rate": 0.0001,
+    "optimizer": "Adam",
+    "loss": "mae",
+    "epochs_max": 200
+  },
+  "dataset": {
+    "total_samples": 1507,
+    "train_samples": 1054,
+    "val_samples": 226,
+    "test_samples": 227,
+    "train_split": 0.70,
+    "val_split": 0.15,
+    "test_split": 0.15
+  },
+  "metrics": {
+    "mae": 0.0297,
+    "rmse": 0.0386,
+    "mape": 1.94,
+    "directional_accuracy": 40.31,
+    "mape_naive_baseline": 0.91,
+    "walk_forward_mape_mean": 2.39,
+    "walk_forward_mape_std": 1.25,
+    "currency": "USD"
+  },
+  "trained_at": "2026-06-27",
+  "source_notebook": "notebooks/experiments.ipynb"
+}
