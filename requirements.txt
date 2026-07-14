@@ -21,3 +21,6 @@ tensorflow
 # Database
 sqlalchemy
 
+matplotlib
+seaborn
+joblib
