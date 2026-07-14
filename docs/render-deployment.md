@@ -92,6 +92,15 @@ Se precisar de múltiplos domínios:
 APP_CORS_ORIGINS = ["https://seu-frontend-url.com", "https://outro-dominio.com"]
 ```
 
+#### **Rate Limiting** (Proteção contra Abuso)
+
+```
+APP_RATE_LIMIT_MAX_REQUESTS = 10
+APP_RATE_LIMIT_WINDOW_SECONDS = 300
+```
+
+Máximo 10 requisições por IP em 5 minutos. 11ª retorna 429.
+
 #### **Debug & Logging** (Segurança)
 
 ```
@@ -130,6 +139,8 @@ APP_SCALER_PATH = ml/scaler.pkl
 APP_DB_PATH = /tmp/app_logs.db
 APP_LOOK_BACK = 30
 APP_FEATURE_COLS = ["Close", "High", "Low", "Open", "Volume"]
+APP_RATE_LIMIT_MAX_REQUESTS = 10
+APP_RATE_LIMIT_WINDOW_SECONDS = 300
 LOG_LEVEL = WARNING
 DEBUG = False
 HOST = 0.0.0.0

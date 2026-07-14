@@ -1,4 +1,22 @@
+# ========================================
+# DESENVOLVIMENTO — Produção + Testes
+# ========================================
+# Instalar em dev: pip install -r requirements-dev.txt
+# (já inclui todas as dependências de produção)
+
+# === PRODUÇÃO (incluído automaticamente) ===
+-r requirements.txt
+
+# === TESTES ===
 pytest==7.4.3
 pytest-cov==4.1.0
 pytest-asyncio==0.23.0
+
+# === HTTP Client (para testes) ===
 httpx==0.25.2
+
+# === Utilitários de Desenvolvimento ===
+black              # Formatação de código
+flake8             # Linting
+mypy               # Type checking (opcional)
+
