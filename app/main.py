@@ -4,15 +4,17 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
 from app.api.v1 import health
 from app.api.v1.router import api_router
 from app.core.config import get_settings
+from app.dependencies import get_db
 from app.models.base import Base, engine
 from app.services.log_service import write_log
+from app.services.rate_limit_service import RateLimitService
 
 settings = get_settings()
 
@@ -41,6 +43,46 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Middleware de rate limiting — máximo 10 requisições por 5 minutos por IP.
+
+    Aplica a todas as rotas exceto /health e /readiness (monitoramento).
+    Rejeita requisições excedentes com 429 Too Many Requests.
+    """
+    # Excluir health checks de rate limiting (usado por monitoramento contínuo)
+    if request.url.path in ("/health", "/readiness"):
+        return await call_next(request)
+
+    # Extrair IP do cliente
+    ip = RateLimitService.get_client_ip(request)
+
+    # Configurar limites de rate limiting
+    RateLimitService.MAX_REQUESTS = settings.rate_limit_max_requests
+    RateLimitService.WINDOW_SECONDS = settings.rate_limit_window_seconds
+
+    # Verificar e registrar no banco SQLite
+    db = next(get_db())
+    try:
+        allowed, retry_after = RateLimitService.check_and_log(ip, db)
+
+        if not allowed:
+            # Requisição rejeitada — limite excedido
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "detail": f"Limite de taxa excedido. Aguarde {retry_after} segundos.",
+                    "retry_after": retry_after,
+                },
+                headers={"Retry-After": str(retry_after)},
+            )
+
+        # Requisição permitida
+        return await call_next(request)
+    finally:
+        db.close()
 
 
 @app.middleware("http")

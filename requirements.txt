@@ -1,11 +1,23 @@
-yfinance
-pandas
+# ========================================
+# PRODUÇÃO — Dependências Essenciais
+# ========================================
+# Instalar em produção: pip install -r requirements.txt
+
+# API Framework
 fastapi
 uvicorn[standard]
 pydantic-settings
+
+# Data Science & Machine Learning
+yfinance
+pandas
+numpy
 joblib
-# Fixado na versão usada para gerar artifacts/scaler.pkl — outra versão
-# gera InconsistentVersionWarning e pode alterar os resultados do StandardScaler.
+# Fixado na versão usada para gerar artifacts/scaler.pkl
+# Outra versão gera InconsistentVersionWarning e pode alterar resultados
 scikit-learn==1.6.1
 tensorflow
+
+# Database
 sqlalchemy
+

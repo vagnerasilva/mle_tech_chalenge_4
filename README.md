@@ -63,6 +63,63 @@ O dashboard de monitoramento está **disponível em produção**:
 
 ---
 
+## 🔐 Rate Limiting — Proteção contra Abuso
+
+A API implementa **rate limiting automático** para proteger contra abusos:
+
+### Limite Padrão
+- **10 requisições por IP** em uma **janela de 5 minutos**
+- 11ª requisição retorna **429 Too Many Requests**
+- Contador reseta automaticamente após 5 minutos
+
+### Comportamento
+
+**Requisição Permitida (1-10):**
+```bash
+curl -X POST http://localhost:8000/api/v1/predict/single \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"BBD"}'
+
+# Response: 200 OK (ou 422 se dados insuficientes)
+```
+
+**Requisição Bloqueada (11+):**
+```bash
+curl -X POST http://localhost:8000/api/v1/predict/single \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"BBD"}'
+
+# Response: 429 Too Many Requests
+# Header: Retry-After: 287
+{
+  "detail": "Limite de taxa excedido. Aguarde 287 segundos.",
+  "retry_after": 287
+}
+```
+
+### Endpoints Protegidos
+- ✅ `POST /api/v1/predict/single` — Rate limited
+- ✅ `POST /api/v1/predict/batch` — Rate limited
+- ✅ `POST /api/v1/predict/sequence` — Rate limited
+- ✅ `GET /api/v1/metrics/latest` — Rate limited
+- ✅ `GET /api/v1/logs` — Rate limited
+
+### Endpoints NÃO Afetados (Monitoramento)
+- ❌ `GET /health` — Sem limite
+- ❌ `GET /readiness` — Sem limite
+
+**💡 Tip:** Usar `/health` para monitoramento contínuo sem preocupação com rate limit.
+
+### Detalhes Técnicos
+- **Storage**: SQLite (`rate_limit_logs`)
+- **Janela deslizante**: Rastreia últimas 5 minutos
+- **IP Detection**: Suporta proxies (X-Forwarded-For, X-Real-IP)
+- **Limpeza automática**: Registros > 5 min removidos
+
+Para mais detalhes: 📖 [docs/rate-limiting.md](docs/rate-limiting.md)
+
+---
+
 ## 📊 Coleta de Dados
 
 ### Fonte de Dados
@@ -709,8 +766,15 @@ source venv/bin/activate  # macOS/Linux
 venv\Scripts\activate  # Windows
 
 # 3. Instalar dependências
+
+# DESENVOLVIMENTO (com testes):
+pip install -r requirements-dev.txt
+
+# OU APENAS PRODUÇÃO (sem testes):
 pip install -r requirements.txt
 ```
+
+**📌 Recomendação**: Use `requirements-dev.txt` em desenvolvimento para ter pytest e tools de dev.
 
 ### **Opção A: Rodar a API (Modo Desenvolvimento)**
 

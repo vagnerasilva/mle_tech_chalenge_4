@@ -47,6 +47,10 @@ APP_DB_PATH=app_logs.db
 APP_LOOK_BACK=30
 APP_FEATURE_COLS=["Close", "High", "Low", "Open", "Volume"]
 
+# Rate Limiting (máximo 10 req por IP em 5 minutos)
+APP_RATE_LIMIT_MAX_REQUESTS=10
+APP_RATE_LIMIT_WINDOW_SECONDS=300
+
 # Server
 PORT=8000
 HOST=127.0.0.1  # Apenas localhost em dev
@@ -107,6 +111,44 @@ HOST=0.0.0.0
 LOG_LEVEL=WARNING  # Menos verbose em produção
 DEBUG=False        # NUNCA ativar em produção
 ```
+
+### Configuração de Rate Limiting
+
+As variáveis `APP_RATE_LIMIT_*` controlam a proteção contra abuso:
+
+**APP_RATE_LIMIT_MAX_REQUESTS** (padrão: 10)
+- Número máximo de requisições permitidas por IP
+- Janela de tempo: APP_RATE_LIMIT_WINDOW_SECONDS
+- **Exemplo**: 10 = máximo 10 requisições por IP
+
+**APP_RATE_LIMIT_WINDOW_SECONDS** (padrão: 300 = 5 minutos)
+- Duração da janela de contagem em segundos
+- **Exemplo**: 300 = 5 minutos, 600 = 10 minutos
+- 11ª requisição na mesma janela retorna **429 Too Many Requests**
+
+**Exemplos de Configuração:**
+
+```bash
+# Padrão (produção recomendado)
+APP_RATE_LIMIT_MAX_REQUESTS=10
+APP_RATE_LIMIT_WINDOW_SECONDS=300  # 5 min
+
+# Menos restritivo (testes)
+APP_RATE_LIMIT_MAX_REQUESTS=50
+APP_RATE_LIMIT_WINDOW_SECONDS=600  # 10 min
+
+# Muito restritivo (segurança máxima)
+APP_RATE_LIMIT_MAX_REQUESTS=5
+APP_RATE_LIMIT_WINDOW_SECONDS=60   # 1 min
+```
+
+**Endpoints NÃO afetados por rate limit:**
+- `/health` — sempre permitido (monitoramento)
+- `/readiness` — sempre permitido (orchestração)
+
+Para mais detalhes: 📖 [rate-limiting.md](rate-limiting.md)
+
+---
 
 ### Observações Importantes
 

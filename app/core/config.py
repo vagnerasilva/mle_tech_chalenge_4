@@ -14,19 +14,24 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["*"]
 
     # Caminhos para artefatos do modelo
-    # Padrão: ml/modelo_lstm.keras e ml/scaler.pkl
-    model_path: Path = REPO_ROOT / "ml" / "modelo_lstm.keras"
-    scaler_path: Path = REPO_ROOT / "ml" / "scaler.pkl"
+    # Padrão: artifacts/modelo_lstm.keras e artifacts/scaler.pkl
+    model_path: Path = REPO_ROOT / "artifacts" / "modelo_lstm.keras"
+    scaler_path: Path = REPO_ROOT / "artifacts" / "scaler.pkl"
 
-    # Banco de dados para auditoria de logs
-    # Local: app_logs.db | Produção: /tmp/app_logs.db (temp)
-    db_path: Path = REPO_ROOT / "app_logs.db"
+    # Banco de dados centralizado (auditoria + rate limit)
+    # Padrão: data/database.db
+    db_path: Path = REPO_ROOT / "data" / "database.db"
 
     # Hiperparâmetros do modelo LSTM — CRÍTICOS
     # Precisam bater exatamente com o pipeline de treino
     # Mudar sem retreinar invalida as previsões
     look_back: int = 30
     feature_cols: list[str] = ["Close", "High", "Low", "Open", "Volume"]
+
+    # Rate Limiting
+    # Proteção contra abuso: máximo de requisições por IP em uma janela de tempo
+    rate_limit_max_requests: int = 10  # Máximo 10 requisições
+    rate_limit_window_seconds: int = 300  # Janela de 5 minutos (300 seg)
 
     @property
     def num_features(self) -> int:
