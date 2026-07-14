@@ -13,6 +13,7 @@ from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.dependencies import get_db
 from app.models.base import Base, engine
+from app.models import metrics as _  # Garante que ModelMetrics seja registrado
 from app.services.log_service import write_log
 from app.services.rate_limit_service import RateLimitService
 
