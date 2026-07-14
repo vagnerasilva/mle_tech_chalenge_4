@@ -1,4 +1,11 @@
 yfinance
 pandas
 fastapi
-uvicorn
+uvicorn[standard]
+pydantic-settings
+joblib
+# Fixado na versão usada para gerar artifacts/scaler.pkl — outra versão
+# gera InconsistentVersionWarning e pode alterar os resultados do StandardScaler.
+scikit-learn==1.6.1
+tensorflow
+sqlalchemy
