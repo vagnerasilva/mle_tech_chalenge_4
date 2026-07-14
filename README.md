@@ -261,133 +261,370 @@ app/
 └── config.py            # Configurações e variáveis de ambiente
 ```
 
-### 📡 Endpoints da API
+### 📡 Endpoints da API — Implementação Atual
 
-> **Nota Importante:** O modelo LSTM carregado nestes endpoints é **exatamente o modelo treinado no notebook** [docs/fase4_pos_mlet_organizado_(1).ipynb](docs/fase4_pos_mlet_organizado_(1).ipynb). 
+> **Nota Importante:** O modelo LSTM carregado nestes endpoints é **treinado especificamente para BBD (Bradesco ADR - NYSE)**, conforme documentado em `docs/documentacao_lstm_tech_challenge.md`.
 > 
-> Quando a API inicia, carrega o arquivo `models/best_lstm_model.keras` (melhor checkpoint do treinamento) e reutiliza o `RobustScaler` persistido para normalização consistente.
+> O pipeline de predição:
+> 1. **Fetch via yfinance** — Busca últimos `look_back` pregões (padrão: 30)
+> 2. **Feature Engineering** — Aplica transformações (log1p) → StandardScaler
+> 3. **LSTM Inference** — Modelo bidirectional LSTM treinado
+> 4. **Desnormalização** — Converte resultado: inverse_transform → expm1
 
-#### **Core — Health & Status**
+### 1️⃣ **Health & Status** — Verificação de Saúde
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| **GET** | `/health` | Status da API e modelo |
-| **GET** | `/readiness` | Verifica se modelo está carregado |
-
-#### **Predição — Inferência**
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| **POST** | `/api/v1/predict/single` | Predição single-shot (1 preço futuro) |
-| **POST** | `/api/v1/predict/batch` | Predição em lote (múltiplas amostras) |
-| **POST** | `/api/v1/predict/sequence` | Predição de múltiplos passos futuros |
-
-**Exemplo de Request (Single):**
-```bash
-curl -X POST http://localhost:8000/api/v1/predict/single \
-  -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "PETR4.SA",
-    "days_back": 60,
-    "days_ahead": 5
-  }'
-```
-
-**Exemplo de Response:**
+#### `GET /health` — Status da API
+**Response (200 OK):**
 ```json
 {
-  "symbol": "PETR4.SA",
-  "predictions": [25.45, 25.67, 25.89, 26.12, 26.34],
-  "confidence": 0.92,
-  "timestamp": "2024-07-20T14:30:00Z"
+  "status": "ok",
+  "model_loaded": true
 }
 ```
 
-#### **Treinamento — Modelo**
+#### `GET /readiness` — Readiness Probe
+Valida se os artefatos do modelo estão carregados (modelo_lstm.keras / scaler.pkl).
 
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| **POST** | `/api/v1/train/start` | Inicia treinamento com parâmetros customizáveis |
-| **GET** | `/api/v1/train/status/{job_id}` | Status do treinamento em andamento |
-| **POST** | `/api/v1/train/stop/{job_id}` | Para um treinamento em execução |
-| **GET** | `/api/v1/train/history` | Histórico de treinamentos |
-
-**Exemplo de Request (Train):**
-```bash
-curl -X POST http://localhost:8000/api/v1/train/start \
-  -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "PETR4.SA",
-    "epochs": 100,
-    "batch_size": 32,
-    "learning_rate": 0.001,
-    "test_size": 0.1
-  }'
-```
-
-**Exemplo de Response:**
+**Response (200 OK):**
 ```json
 {
-  "job_id": "train_20240720_143000",
-  "status": "running",
-  "progress": 35,
-  "current_epoch": 35,
-  "total_epochs": 100,
-  "loss": 0.0045,
-  "val_loss": 0.0052
+  "ready": true
 }
 ```
 
-#### **Métricas — Avaliação**
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| **GET** | `/api/v1/metrics/latest` | Métricas do último treinamento |
-| **GET** | `/api/v1/metrics/model` | Métricas do modelo em produção |
-| **GET** | `/api/v1/metrics/inference` | Tempo de resposta e throughput |
-| **GET** | `/api/v1/metrics/comparison` | Comparação entre modelos |
+**Response (503 Service Unavailable):**
+```json
+{
+  "ready": false,
+  "detail": "Artefatos do modelo (modelo_lstm.keras / scaler.pkl) não encontrados."
+}
+```
 
 ---
 
-## 🏗️ Arquitetura
+### 2️⃣ **Predição — Endpoints de Inferência**
 
-### Visão Geral
+#### `POST /api/v1/predict/single` — Prevê o próximo pregão
+
+**Descrição:** 
+- Busca via `yfinance` os últimos `look_back` (30) pregões de um símbolo
+- Aplica o pipeline de normalização idêntico ao treinamento
+- Retorna a previsão de fechamento (`Close`) do próximo pregão
+
+**Request:**
+```bash
+curl -X POST http://localhost:8000/api/v1/predict/single \
+  -H "Content-Type: application/json" \
+  -d '{"symbol": "BBD"}'
 ```
+
+**Response (200 OK):**
+```json
+{
+  "symbol": "BBD",
+  "predicted_close": 3.4482,
+  "last_trading_date": "2026-07-10",
+  "look_back": 30
+}
+```
+
+**Response (422 Unprocessable Entity):**
+```json
+{
+  "detail": "yfinance não retornou dados suficientes para 'INVALID' (requisito: 30)"
+}
+```
+
+---
+
+#### `POST /api/v1/predict/batch` — Predição em lote
+
+**Descrição:**
+- Aplica `/predict/single` a uma lista de símbolos
+- Erros são isolados por símbolo (não derruba o lote inteiro)
+- Cada símbolo é resolvido independentemente
+
+**Request:**
+```bash
+curl -X POST http://localhost:8000/api/v1/predict/batch \
+  -H "Content-Type: application/json" \
+  -d '{"symbols": ["BBD", "PETR4.SA"]}'
+```
+
+**Response (200 OK):**
+```json
+{
+  "results": {
+    "BBD": {
+      "predicted_close": 3.4482,
+      "last_trading_date": "2026-07-10",
+      "error": null
+    },
+    "PETR4.SA": {
+      "predicted_close": null,
+      "last_trading_date": null,
+      "error": "yfinance não retornou dados suficientes para 'PETR4.SA' (requisito: 30)"
+    }
+  },
+  "generated_at": "2026-07-13T23:48:18.640903"
+}
+```
+
+---
+
+#### `POST /api/v1/predict/sequence` — Previsão multi-passo (forecast recursivo)
+
+**Descrição:**
+- Prevê `days_ahead` pregões à frente (1-60)
+- Modelo foi treinado para prever apenas **1 passo à frente**
+- Para `days_ahead > 1`: cada previsão é realimentada (recursive forecast)
+  - `High = Low = Open = Close` previsto
+  - `Volume` é mantido no último valor observado
+- **Qualidade degrada com o horizonte** — usar como tendência aproximada
+
+**Request:**
+```bash
+curl -X POST http://localhost:8000/api/v1/predict/sequence \
+  -H "Content-Type: application/json" \
+  -d '{"symbol": "BBD", "days_ahead": 5}'
+```
+
+**Response (200 OK):**
+```json
+{
+  "symbol": "BBD",
+  "days_ahead": 5,
+  "predictions": [3.4482, 3.4003, 3.3657, 3.3402, 3.3188],
+  "method": "recursive_close_only",
+  "note": "Previsão recursiva: a partir do 2º passo, High/Low/Open assumem o Close previsto e o Volume é mantido no último valor observado. A qualidade da previsão degrada com o horizonte."
+}
+```
+
+---
+
+### 3️⃣ **Métricas — Avaliação do Modelo**
+
+#### `GET /api/v1/metrics/latest` — Métricas do teste
+
+**Descrição:**
+- Retorna métricas da avaliação offline no conjunto de teste (treinamento)
+- **Não são recalculadas em tempo real**
+- Valores referem-se ao modelo BBD conforme seção 6 de `docs/documentacao_lstm_tech_challenge.md`
+
+**Response (200 OK):**
+```json
+{
+  "symbol": "BBD",
+  "mae": 0.0297,
+  "rmse": 0.0386,
+  "mape": 1.94,
+  "directional_accuracy": 40.31,
+  "source": "avaliação offline no conjunto de teste (treinamento do modelo)"
+}
+```
+
+**Legenda de Métricas:**
+- **MAE** (Mean Absolute Error): Erro médio absoluto (USD)
+- **RMSE** (Root Mean Square Error): Raiz do erro quadrático médio (USD)
+- **MAPE** (Mean Absolute Percentage Error): Erro percentual absoluto médio (%)
+- **Directional Accuracy**: Taxa de acerto da direção do movimento (%)
+
+---
+
+### 4️⃣ **Logs & Auditoria**
+
+#### `GET /api/v1/logs?limit=500` — Histórico de acessos
+
+**Descrição:**
+- Retorna registros de auditoria de todas as requisições à API
+- Gravado automaticamente via middleware global (ver `app/main.py`)
+- Cada entry contém: método, rota, status, tempo de resposta, IP, data/hora
+- Limite máximo: 500 registros, mais recentes primeiro
+
+**Query Parameters:**
+- `limit` (int, 1-500, default=500): Quantidade de registros
+
+**Response (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "method": "POST",
+    "path": "/api/v1/predict/single",
+    "status_code": 200,
+    "process_time": 0.842,
+    "ip_address": "127.0.0.1",
+    "created_at": "2026-07-13T23:48:18.640903+00:00"
+  }
+]
+```
+
+---
+
+### 📊 **Resumo de Endpoints**
+
+| Método | Endpoint | Descrição | Status |
+|--------|----------|-----------|--------|
+| **GET** | `/health` | Status da API e modelo | ✅ |
+| **GET** | `/readiness` | Readiness probe | ✅ |
+| **POST** | `/api/v1/predict/single` | Predição 1 pregão à frente | ✅ |
+| **POST** | `/api/v1/predict/batch` | Predição em lote | ✅ |
+| **POST** | `/api/v1/predict/sequence` | Previsão recursiva (multi-passo) | ✅ |
+| **GET** | `/api/v1/metrics/latest` | Métricas do modelo (offline) | ✅ |
+| **GET** | `/api/v1/logs` | Histórico de acessos (auditoria) | ✅ |
+
+---
+
+## 🏗️ Arquitetura Atual
+
+### Visão Geral da API
+
+```
+┌─────────────────────────────────────────────────┐
+│           Cliente (Web, Mobile, CLI)             │
+│  curl / Postman / Python requests / etc.         │
+└──────────────────────┬──────────────────────────┘
+                       │ HTTP REST
+                       ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                    Cliente / Aplicação                       │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ REST API
-                           ↓
-┌─────────────────────────────────────────────────────────────┐
-│                  FastAPI (uvicorn)                           │
+│                    FastAPI (uvicorn)                         │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │  Middleware de Auditoria (logs_middleware)            │  │
+│  │  - Registra cada requisição (method, path, status)    │  │
+│  │  - Mede tempo de resposta e IP do cliente             │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                       ↓                                      │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │  Routers (health, predict, train, metrics)          │   │
-│  └──────────────────────┬───────────────────────────────┘   │
-│                        │                                     │
-│  ┌────────────────────┴──────────────────────────────┐  │   │
-│  ↓                                                   ↓  │   │
-│ ┌──────────────────┐  ┌──────────────────────────┐   │   │
-│ │ Model Service    │  │ Data Service             │   │   │
-│ │ ✓ Load/Cache     │  │ ✓ Fetch (yfinance)       │   │   │
-│ │ ✓ Inference      │  │ ✓ Normalize/Preprocess   │   │   │
-│ │ ✓ Batch predict  │  │ ✓ Windowing              │   │   │
-│ └────────┬─────────┘  └──────────────┬───────────┘   │   │
-│          │                           │               │   │
-│          ↓                           ↓               │   │
-│  ┌────────────────────────────────────────────┐      │   │
-│  │  Models / Storage                          │      │   │
-│  │  ✓ best_model.h5                           │      │   │
-│  │  ✓ checkpoints/                            │      │   │
-│  │  ✓ scaler (pkl)                            │      │   │
-│  └────────────────────────────────────────────┘      │   │
-└─────────────────────────────────────────────────────┘   │
-                                                           │
-┌───────────────────────────────────────────────────────┐  │
-│  Persistent Storage                                   │  │
-│  ✓ logs/train.log                                     │  │
-│  ✓ data/precos_fechamento.csv                         │  │
-│  ✓ models/                                            │  │
-└───────────────────────────────────────────────────────┘  │
+│  │              Routers (app/api/v1/)                  │   │
+│  ├─ health.py       → /health, /readiness             │   │
+│  ├─ predict.py      → /api/v1/predict/single|batch    │   │
+│  ├─ metrics.py      → /api/v1/metrics/latest          │   │
+│  └─ logs.py         → /api/v1/logs                    │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                       ↓                                      │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │            Services (app/services/)                 │   │
+│  ├─ prediction_service.py                             │   │
+│  │  ├─ predict_single(symbol)      → 1 pregão         │   │
+│  │  ├─ predict_batch(symbols)      → múltiplos        │   │
+│  │  └─ predict_sequence(symbol, days) → forecast      │   │
+│  └─ log_service.py                                     │   │
+│  │  └─ Persistência em SQLite (api_logs)              │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                       ↓                                      │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │            ML Pipeline (ml/)                        │   │
+│  ├─ inference.py                                       │   │
+│  │  ├─ predict_next_close()   → busca yfinance        │   │
+│  │  ├─ aplica log1p transform                         │   │
+│  │  ├─ normaliza com scaler.pkl                       │   │
+│  │  ├─ passa por LSTM                                 │   │
+│  │  └─ desnormaliza (expm1)                           │   │
+│  ├─ model.py        → carrega modelo_lstm.keras       │   │
+│  └─ data.py         → feature engineering, yfinance   │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                       ↓
+      ┌────────────────────────────────────┐
+      │      Storage Persistence           │
+      ├─ ml/modelo_lstm.keras              │
+      ├─ ml/scaler.pkl                     │
+      ├─ app_logs.db (SQLite)              │
+      └────────────────────────────────────┘
+```
+
+### Fluxo de uma Predição (End-to-End)
+
+```
+1. POST /api/v1/predict/single
+   {"symbol": "BBD"}
+        ↓
+2. PredictionService.predict_single(symbol)
+   - Cria InsufficientDataError se algo falhar
+        ↓
+3. ml.inference.predict_next_close(symbol, settings)
+   - yfinance.download(symbol) → últimos look_back (30) dias
+   - Feature engineering: cria features OHLCV
+   - Log1p transform (proteção a outliers)
+   - StandardScaler.transform() (usando ml/scaler.pkl)
+        ↓
+4. Modelo LSTM Bidirectional
+   - Input: (1, look_back, features)
+   - Output: preço previsto (normalizado)
+        ↓
+5. Inverse Transform
+   - StandardScaler.inverse_transform()
+   - expm1 (desfaz log1p)
+        ↓
+6. PredictResponse
+   {
+     "symbol": "BBD",
+     "predicted_close": 3.4482,
+     "last_trading_date": "2026-07-10",
+     "look_back": 30
+   }
+        ↓
+7. Middleware registra acesso em SQLite
+   - INSERT INTO api_logs (method, path, status_code, ...)
+```
+
+### Estrutura de Diretórios
+
+```
+app/
+├── __init__.py
+├── main.py                 # Orquestração FastAPI + middleware
+├── core/
+│   ├── __init__.py
+│   └── config.py          # Settings, variáveis de ambiente
+├── api/v1/
+│   ├── __init__.py
+│   ├── router.py          # Include de todos os routers
+│   ├── health.py          # GET /health, /readiness
+│   ├── predict.py         # POST /api/v1/predict/*
+│   ├── metrics.py         # GET /api/v1/metrics/latest
+│   └── logs.py            # GET /api/v1/logs
+├── services/
+│   ├── __init__.py
+│   ├── prediction_service.py  # Orquestração de predições
+│   └── log_service.py         # CRUD logs em SQLite
+├── models/
+│   ├── __init__.py
+│   ├── base.py            # Base SQLAlchemy + engine
+│   └── logs.py            # ORM de api_logs
+├── schemas/
+│   ├── __init__.py
+│   ├── health.py          # HealthResponse, ReadinessResponse
+│   ├── predict.py         # PredictRequest/Response, etc.
+│   ├── metrics.py         # MetricsResponse
+│   └── logs.py            # ApiLogEntry
+├── dependencies.py        # get_db()
+├── static/                # Frontend React (servido pelo root)
+│   ├── index.html
+│   ├── js/
+│   └── css/
+└── app.py                 # App antigo (compatibilidade)
+
+ml/
+├── __init__.py
+├── model.py               # artifacts_available(), carregamento
+├── inference.py           # predict_next_close(), predict_sequence()
+└── data.py                # Feature engineering, yfinance
+
+tests/
+├── conftest.py
+├── test_predict.py        # Testes do router /predict
+├── test_logs.py           # Testes do router /logs
+└── test_health.py         # Testes do router /health
+
+models/
+├── modelo_lstm.keras      # Modelo treinado (BBD)
+└── checkpoints/           # Checkpoints intermediários (treino)
+
+docs/
+├── documentacao_lstm_tech_challenge.md
+├── fase4_pos_mlet_organizado_(1).ipynb  # Notebook principal
+└── oquefazer.md           # Requisitos do tech challenge
 ```
 
 ---
@@ -400,33 +637,34 @@ curl -X POST http://localhost:8000/api/v1/train/start \
 - [x] Scripts de coleta de dados (yfinance)
 - [x] Pré-processamento básico
 
-### **Fase 2: Modelo LSTM** 🔄
-- [ ] Implementação da arquitetura LSTM
-- [ ] Pipeline de treinamento com checkpoints
-- [ ] Validação e tuning de hiperparâmetros
-- [ ] Avaliação com métricas (MAE, RMSE, MAPE, R²)
-- [ ] Salvar e versionamento do modelo
+### **Fase 2: Modelo LSTM** ✅
+- [x] Implementação da arquitetura LSTM Bidirectional
+- [x] Pipeline de treinamento com checkpoints
+- [x] Validação e tuning de hiperparâmetros (TimeSeriesSplit)
+- [x] Avaliação com métricas (MAE, RMSE, MAPE, Directional Accuracy)
+- [x] Salvar modelo em `ml/modelo_lstm.keras` + scaler em `ml/scaler.pkl`
 
-### **Fase 3: API & Endpoints** 📋
-- [ ] Setup FastAPI
-- [ ] Implementar routers (health, predict, train, metrics)
-- [ ] Validação com Pydantic schemas
-- [ ] Documentação Swagger automática
-- [ ] Testes de endpoints (unit + integração)
+### **Fase 3: API & Endpoints** ✅
+- [x] Setup FastAPI com estrutura modular
+- [x] Implementar routers (health, predict, metrics, logs)
+- [x] Validação com Pydantic schemas
+- [x] Documentação Swagger/ReDoc automática
+- [x] Testes de endpoints (unit + integração)
 
-### **Fase 4: Monitoramento & Deploy** �
-- [x] Logs estruturados (JSON)
+### **Fase 4: Monitoramento & Deploy** ✅
+- [x] Logs estruturados (auditoria em SQLite)
 - [x] Health checks e readiness probes
-- [x] Scripts de exemplo (curl, Postman)
-- [x] Documentação completa de deploy
-- [x] Dashboard de monitoramento (Streamlit)
-
-### **Fase 5: Otimizações & Produção** ⚡
+- [x] Documentação completa
+- [x] Dashboard de monitoramento (Streamlit em repo separado)
 - [x] Deploy em produção (Render.com)
-- [ ] Caching de predições
-- [ ] Rate limiting e autenticação (opcional)
-- [ ] Métricas de observabilidade (Prometheus/Grafana)
+
+### **Fase 5: Otimizações & Produção** 🔄
+- [x] Deploy em produção (Render.com)
+- [ ] Caching de predições (Redis)
+- [ ] Rate limiting e autenticação (JWT/API Key)
+- [ ] Métricas de observabilidade (Prometheus)
 - [ ] CI/CD com GitHub Actions
+- [ ] Versionamento de modelos (Model Registry)
 
 ---
 
@@ -453,143 +691,486 @@ curl -X POST http://localhost:8000/api/v1/train/start \
 
 ## 📦 Como Rodar
 
-### **Opção 0: Treinar o Modelo (Desenvolvimento)**
+### **Pré-requisitos**
+- Python 3.10+
+- pip (ou conda)
+- Conexão com a internet (para yfinance)
 
-Se quiser reproduzir o treinamento do modelo localmente:
-
-```bash
-# 1. Clonar e setup
-git clone <repo-url>
-cd mle_tech_chalenge_4
-python -m venv .venv
-source .venv/bin/activate  # macOS/Linux
-pip install -r requirements.txt
-
-# 2. Abrir o Jupyter Notebook
-jupyter notebook docs/fase4_pos_mlet_organizado_(1).ipynb
-
-# 3. Executar todas as células para:
-#    - Baixar dados via yfinance
-#    - Fazer feature engineering
-#    - Buscar hiperparâmetros (TimeSeriesSplit)
-#    - Treinar o Bidirectional LSTM
-#    - Salvar modelo em models/best_lstm_model.keras
-#    - Gerar métricas e visualizações
-```
-
-**Nota:** Este processo pode levar 10-30 minutos dependendo do hardware (GPU recomendada).
-
-### **Opção 1: Rodar a API (Com Modelo Pré-treinado)**
+### **Setup do Ambiente Local**
 
 ```bash
-# 1. Clonar repositório
-git clone <repo-url>
+# 1. Clonar repositório (ou já estar no diretório)
 cd mle_tech_chalenge_4
 
 # 2. Criar ambiente virtual
-python -m venv .venv
-source .venv/bin/activate  # macOS/Linux
+python -m venv venv
+source venv/bin/activate  # macOS/Linux
 # ou
-.venv\Scripts\activate  # Windows
+venv\Scripts\activate  # Windows
 
 # 3. Instalar dependências
 pip install -r requirements.txt
+```
 
-# 4. Executar API
+### **Opção A: Rodar a API (Modo Desenvolvimento)**
+
+```bash
+# Iniciar o servidor com auto-reload
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 5. Testes (em outro terminal)
-pytest -v --cov=app tests/
 ```
 
-A API carregará o modelo treinado (`models/best_lstm_model.keras`) ao iniciar.
-
-### Frontend Integrado (React)
-
-Um frontend React leve foi adicionado em `app/static` e é servido pela API. Após iniciar a API localmente, abra:
-
+**Saída esperada:**
 ```
-http://localhost:8000/web
+INFO:     Uvicorn running on http://0.0.0.0:8000
+INFO:     Application startup complete
 ```
 
-Ou acesse diretamente os assets estáticos em:
+**Acessar a API:**
+- 🏠 **Root**: http://localhost:8000/
+- 📋 **Swagger Docs**: http://localhost:8000/docs
+- 📚 **ReDoc**: http://localhost:8000/redoc
+- ✅ **Health**: http://localhost:8000/health
 
-```
-http://localhost:8000/static/index.html
+### **Opção B: Rodar a API (Modo Produção)**
+
+```bash
+# Sem auto-reload, mais otimizado
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Ou com gunicorn (requer instalação extra)
+pip install gunicorn
+gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker
 ```
 
-O painel permite enviar requisições ao endpoint `/api/v1/predict/single`, visualizar predições e testar o `health` rapidamente.
+### **Opção C: Testes Automatizados**
+
+```bash
+# Rodar todos os testes
+pytest -v
+
+# Com cobertura de código
+pytest --cov=app --cov-report=html tests/
+
+# Modo rápido (sem output verboso)
+pytest -q --tb=short
+```
+
+**Meta de cobertura:** >= 70%
+
+### **Artefatos Necessários (Automático)**
+
+Ao iniciar a API, são verificados:
+- ✅ `ml/modelo_lstm.keras` — Modelo treinado (BBD)
+- ✅ `ml/scaler.pkl` — StandardScaler (fit no treinamento)
+- ✅ `app_logs.db` — Banco SQLite para auditoria (criado automaticamente)
+
+Se algum artefato estiver faltando, o endpoint `/readiness` retornará `ready: false`.
+
+### **Frontend Integrado (React)**
+
+Um frontend React leve foi adicionado em `app/static` e é servido pela API:
+
+**Acessar:**
+```
+http://localhost:8000/
+```
+
+O painel permite:
+- ✔️ Enviar requisições ao endpoint `/api/v1/predict/single`
+- 📊 Visualizar predições em tempo real
+- 🔍 Testar o health check rapidamente
+- 📜 Consultar histórico de acessos (`/api/v1/logs`)
 
 ---
 
-## 📝 Exemplos de Uso
+## 📝 Exemplos de Uso (cURL)
 
-### Produção (Render.com)
-> Use `https://mle-tech-chalenge-4.onrender.com` para a API em produção
+### 🌐 Ambientes
 
-### Local (Desenvolvimento)
-> Use `http://localhost:8000` para ambiente local
+| Ambiente | URL |
+|----------|-----|
+| **Local** | http://localhost:8000 |
+| **Produção** | https://mle-tech-chalenge-4.onrender.com |
 
-### **Health Check**
+---
+
+### ✅ Health Check
+
 ```bash
+# Status da API
 curl http://localhost:8000/health
+
+# Resposta esperada:
+# {"status":"ok","model_loaded":true}
 ```
 
-### **Predição Single-Shot**
+### 🔍 Readiness Check
+
 ```bash
+# Verifica se modelo está carregado
+curl http://localhost:8000/readiness
+
+# Resposta esperada:
+# {"ready":true}
+```
+
+---
+
+### 🎯 Predição Single-Shot (Próximo Pregão)
+
+```bash
+# Prevê o preço de fechamento de BBD para o próximo pregão
 curl -X POST http://localhost:8000/api/v1/predict/single \
   -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "PETR4.SA",
-    "days_back": 60,
-    "days_ahead": 5
-  }'
+  -d '{"symbol": "BBD"}'
+
+# Resposta esperada:
+# {
+#   "symbol": "BBD",
+#   "predicted_close": 3.4482,
+#   "last_trading_date": "2026-07-10",
+#   "look_back": 30
+# }
 ```
 
-### **Treinamento**
+---
+
+### 📦 Predição em Lote (Batch)
+
 ```bash
-curl -X POST http://localhost:8000/api/v1/train/start \
+# Prevê para múltiplos símbolos (erros isolados)
+curl -X POST http://localhost:8000/api/v1/predict/batch \
   -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "VALE3.SA",
-    "epochs": 50,
-    "batch_size": 32,
-    "learning_rate": 0.001
-  }'
+  -d '{"symbols": ["BBD", "PETR4.SA"]}'
+
+# Resposta esperada:
+# {
+#   "results": {
+#     "BBD": {"predicted_close": 3.4482, "last_trading_date": "2026-07-10", "error": null},
+#     "PETR4.SA": {"predicted_close": null, "last_trading_date": null, "error": "..."}
+#   },
+#   "generated_at": "2026-07-13T23:48:18.640903"
+# }
 ```
 
-### **Verificar Métricas**
+---
+
+### 📈 Previsão Multi-Passo (Forecast Recursivo)
+
 ```bash
-curl http://localhost:8000/api/v1/metrics/latest
+# Prevê 5 pregões à frente (forecast recursivo)
+curl -X POST http://localhost:8000/api/v1/predict/sequence \
+  -H "Content-Type: application/json" \
+  -d '{"symbol": "BBD", "days_ahead": 5}'
+
+# Resposta esperada:
+# {
+#   "symbol": "BBD",
+#   "days_ahead": 5,
+#   "predictions": [3.4482, 3.4003, 3.3657, 3.3402, 3.3188],
+#   "method": "recursive_close_only",
+#   "note": "Previsão recursiva: a partir do 2º passo, High/Low/Open assumem o Close previsto..."
+# }
 ```
 
-### 🔄 Entendendo o Fluxo de Predição
+**Atenção:** Qualidade degrada com o horizonte — use como tendência aproximada.
 
-Quando você faz uma requisição POST para `/api/v1/predict/single`, internamente acontece:
+---
 
-1. **Fetch de Dados** (via yfinance)
-   - Baixa últimas N séries de preços (últimos 60+ dias)
-   - Mesma fonte que o notebook utiliza
+### 📊 Métricas do Modelo
 
-2. **Feature Engineering**
-   - Constrói as mesmas **17 features** (MA_7, MA_21, RSI_14, MACD, Bollinger Bands, etc.)
-   - Código idêntico ao do notebook (`app/services/data.py`)
+```bash
+# Retorna métricas de avaliação offline (teste set)
+curl http://localhost:8000/api/v1/metrics/latest
 
-3. **Normalização**
-   - Aplica o `RobustScaler` salvo do treinamento
-   - Garante consistência: mesmos parâmetros (min, max, quartis)
-   - **Sem data leakage** — não refaz o fit nos dados de predição
+# Resposta esperada:
+# {
+#   "symbol": "BBD",
+#   "mae": 0.0297,
+#   "rmse": 0.0386,
+#   "mape": 1.94,
+#   "directional_accuracy": 40.31,
+#   "source": "avaliação offline no conjunto de teste (treinamento do modelo)"
+# }
+```
 
-4. **Predição LSTM**
-   - Carrega o modelo `best_lstm_model.keras` (salvo do notebook)
-   - Usa o mesmo `LOOK_BACK` otimizado
-   - Bidirectional LSTM + BatchNorm + Regularização L2
+---
 
-5. **Desnormalização**
-   - Converte predição de volta para USD
-   - Usa inverso do scaler persistido
+### 📜 Histórico de Acessos (Auditoria)
 
-**Resultado:** Predição consistente com métricas de validação do notebook.
+```bash
+# Lista últimos 50 acessos à API
+curl "http://localhost:8000/api/v1/logs?limit=50"
+
+# Resposta esperada:
+# [
+#   {
+#     "id": 1,
+#     "method": "POST",
+#     "path": "/api/v1/predict/single",
+#     "status_code": 200,
+#     "process_time": 0.842,
+#     "ip_address": "127.0.0.1",
+#     "created_at": "2026-07-13T23:48:18.640903+00:00"
+#   }
+# ]
+```
+
+---
+
+### 📚 Documentação Interativa
+
+```bash
+# Swagger UI (desenvolvimento)
+open http://localhost:8000/docs
+
+# ReDoc (desenvolvimento)
+open http://localhost:8000/redoc
+
+# Em produção:
+open https://mle-tech-chalenge-4.onrender.com/docs
+```
+
+### 🔄 Lógica das Rotas — Detalhado
+
+#### **1. Health & Readiness**
+
+**`GET /health`** (app/api/v1/health.py:11)
+```python
+def health_check():
+    model_loaded = artifacts_available(model_path, scaler_path)
+    return HealthResponse(status="ok", model_loaded=model_loaded)
+```
+- Valida se `ml/modelo_lstm.keras` e `ml/scaler.pkl` existem
+- Sempre retorna 200 (status="ok")
+- Indica se modelo está carregado
+
+**`GET /readiness`** (app/api/v1/health.py:16)
+```python
+def readiness_check():
+    if artifacts_available(model_path, scaler_path):
+        return ReadinessResponse(ready=True)
+    return ReadinessResponse(
+        ready=False, 
+        detail="Artefatos não encontrados"
+    )
+```
+- Probe para orchestração (Kubernetes, etc.)
+- Retorna 503 se modelo não carregado
+
+---
+
+#### **2. Predição Single**
+
+**`POST /api/v1/predict/single`** (app/api/v1/predict.py:16)
+
+**Fluxo de Execução:**
+
+```python
+def predict_single(symbol: str):
+    1. PredictionService.predict_single(symbol)
+    
+    2. ml.inference.predict_next_close(symbol, settings)
+       ├─ yfinance.download(symbol, start_date, end_date)
+       │  └─ Busca últimos `look_back` (30) pregões
+       │
+       ├─ ml.data.prepare_single_sequence(df, settings)
+       │  ├─ log1p(close_prices)  # Transform para estabilidade
+       │  ├─ StandardScaler.fit() — NÃO FAZE! Usa scaler.pkl
+       │  ├─ StandardScaler.transform()
+       │  └─ Cria janela deslizante (look_back, features)
+       │
+       ├─ model.predict(sequence)  # LSTM
+       │  └─ Saída: preço normalizado
+       │
+       ├─ StandardScaler.inverse_transform()
+       └─ expm1(prediction)  # Desfaz log1p
+    
+    3. Captura InsufficientDataError se yfinance retorna < look_back dias
+       └─ Retorna 422 Unprocessable Entity
+    
+    4. Return PredictResponse
+       {
+         "symbol": "BBD",
+         "predicted_close": 3.4482,
+         "last_trading_date": "2026-07-10",
+         "look_back": 30
+       }
+```
+
+**Casos de Erro:**
+- **422 Unprocessable Entity**: Símbolo inválido, IPO recente, ou < 30 dias de histórico
+- **500 Internal Server Error**: Modelo não carregado
+
+---
+
+#### **3. Predição Batch**
+
+**`POST /api/v1/predict/batch`** (app/api/v1/predict.py:44)
+
+**Fluxo:**
+
+```python
+def predict_batch(symbols: list[str]):
+    results = {}
+    
+    for symbol in symbols:
+        try:
+            price, last_date = inference.predict_next_close(symbol)
+            results[symbol] = BatchPredictItem(
+                predicted_close=price,
+                last_trading_date=last_date,
+                error=None
+            )
+        except InsufficientDataError as exc:
+            results[symbol] = BatchPredictItem(
+                predicted_close=None,
+                last_trading_date=None,
+                error=str(exc)  # Erro isolado
+            )
+    
+    return BatchPredictResponse(
+        results=results,
+        generated_at=datetime.utcnow()
+    )
+```
+
+**Características:**
+- ✅ Erros são isolados por símbolo
+- ✅ Um símbolo ruim não afeta os outros
+- ✅ Retorna sempre 200 (nem que com erros dentro do results)
+
+---
+
+#### **4. Predição Sequence (Forecast Recursivo)**
+
+**`POST /api/v1/predict/sequence`** (app/api/v1/predict.py:68)
+
+**Fluxo:**
+
+```python
+def predict_sequence(symbol: str, days_ahead: int):
+    # ml.inference.predict_sequence(symbol, days_ahead)
+    
+    preds = []
+    current_df = yfinance.download(symbol)  # Últimos 30 dias
+    
+    for _ in range(days_ahead):
+        # 1. Prepara sequência atual
+        sequence = prepare_sequence(current_df[-30:])
+        
+        # 2. Prediz próximo Close
+        next_close = model.predict(sequence)
+        preds.append(next_close)
+        
+        # 3. Alimenta predição de volta (recursive forecasting)
+        # Artifício: assume High = Low = Open = Close previsto
+        # Volume mantém último valor observado
+        current_df = append_synthetic_day(
+            current_df,
+            open_price=next_close,
+            high=next_close,
+            low=next_close,
+            close=next_close,
+            volume=current_df[-1].volume
+        )
+    
+    return SequencePredictResponse(
+        symbol=symbol,
+        days_ahead=days_ahead,
+        predictions=preds,
+        method="recursive_close_only",
+        note="Qualidade degrada com horizonte..."
+    )
+```
+
+**⚠️ Aviso Importante:**
+- Modelo treinado para 1 passo à frente APENAS
+- Para `days_ahead > 1`: cada passo alimenta o próximo (acumula erro)
+- Use como **tendência aproximada**, não previsão precisa
+
+---
+
+#### **5. Métricas**
+
+**`GET /api/v1/metrics/latest`** (app/api/v1/metrics.py:8)
+
+```python
+def metrics_latest():
+    # Valores HARDCODED — não recalculados em tempo real
+    # Gerados na avaliação offline do notebook
+    return MetricsResponse(
+        symbol="BBD",
+        mae=0.0297,          # USD
+        rmse=0.0386,         # USD
+        mape=1.94,           # %
+        directional_accuracy=40.31,  # %
+        source="avaliação offline no conjunto de teste"
+    )
+```
+
+**Nota:**
+- Métricas são **estáticas** (offline)
+- Referem-se ao modelo BBD conforme treino no notebook
+- Para métricas em tempo real: implementar callback ou job assíncrono
+
+---
+
+#### **6. Logs & Auditoria**
+
+**`GET /api/v1/logs?limit=500`** (app/api/v1/logs.py:11)
+
+**Middleware (app/main.py:46):**
+```python
+@app.middleware("http")
+async def log_requests_middleware(request, call_next):
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    process_time = time.perf_counter() - start_time
+    
+    # Evita log infinito (requisição para /logs não gera novo log)
+    if request.url.path != "/api/v1/logs":
+        response.background = BackgroundTask(
+            write_log, request, response, process_time
+        )
+    return response
+```
+
+**Dados Capturados (SQLite):**
+- `method`: HTTP method (GET, POST, etc.)
+- `path`: URL path
+- `status_code`: Response code (200, 422, etc.)
+- `process_time`: Tempo de resposta (segundos)
+- `ip_address`: IP do cliente
+- `created_at`: Timestamp UTC
+
+**Query:**
+- `limit` (1-500, default=500): Limita resultados, mais recentes primeiro
+
+---
+
+### 📊 Tratamento de Erros — Padrão
+
+```
+InsufficientDataError (ml/data.py)
+    ↓
+PredictionService.predict_single() captura
+    ↓
+raise HTTPException(
+    status_code=422,  # Unprocessable Entity
+    detail="yfinance não retornou dados suficientes..."
+)
+    ↓
+Response: 422 Unprocessable Entity
+{
+  "detail": "erro detalhado"
+}
+```
+
+**Códigos HTTP Usados:**
+- **200 OK**: Sucesso
+- **422 Unprocessable Entity**: Dados insuficientes, símbolo inválido
+- **500 Internal Server Error**: Modelo não carregado, erro inesperado
 
 ---
 
