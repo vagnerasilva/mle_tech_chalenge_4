@@ -28,8 +28,7 @@ def predict_next_close(service: PredictionService = Depends(get_prediction_servi
 
     Exemplo (equivalente ao `prever_proximo_dia()` do notebook de referência):
     ```
-    POST /api/v1/predict/single
-    {"symbol": "BBD"}
+    POST /api/v1/predict/next_close
     ```
     """
     return service.predict_single("BBD")
