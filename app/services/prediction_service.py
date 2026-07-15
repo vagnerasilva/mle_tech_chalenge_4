@@ -41,36 +41,25 @@ class PredictionService:
         """
         Salva a predição na tabela de métricas para monitoramento posterior.
         
-        Tenta buscar o preço real do yfinance para calcular erro imediatamente,
-        mas continua mesmo se a data ainda não estiver disponível (registra como pending).
+        Registra sempre como pendente, sem buscar ou calcular o preço real agora.
+        A validação posterior preenche `actual_close` e as métricas.
         """
         if not self.db:
             return
         
         try:
-            # Tenta buscar preço real para hoje/próximo dia
-            actual_price = ModelMonitoringService.get_actual_price(prediction_date)
-            
-            if actual_price:
-                # Se encontrou preço real, calcula métricas
-                metrics = ModelMonitoringService.calculate_metrics(predicted_close, actual_price)
-            else:
-                # Senão, salva com preço real como None (será preenchido depois na validação)
-                metrics = {
+            ModelMonitoringService.save_prediction_metrics(
+                self.db,
+                prediction_date=prediction_date,
+                predicted_close=predicted_close,
+                actual_close=None,
+                metrics={
                     "mae": None,
                     "rmse": None,
                     "mape": None,
                     "directional_accuracy": None,
                     "error_percentage": None,
-                }
-            
-            # Salva no banco
-            ModelMonitoringService.save_prediction_metrics(
-                self.db,
-                prediction_date=prediction_date,
-                predicted_close=predicted_close,
-                actual_close=actual_price,
-                metrics=metrics,
+                },
             )
         except Exception as e:
             # Não falha a predição se houver erro ao salvar métrica

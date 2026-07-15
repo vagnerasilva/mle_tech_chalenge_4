@@ -66,7 +66,7 @@ class ModelMonitoringService:
         db: Session,
         prediction_date: datetime.date,
         predicted_close: float,
-        actual_close: float,
+        actual_close: float | None,
         metrics: dict,
     ) -> ModelMetrics:
         """
@@ -76,8 +76,8 @@ class ModelMonitoringService:
             db: Sessão SQLAlchemy
             prediction_date: Data da predição
             predicted_close: Preço predito
-            actual_close: Preço real
-            metrics: Dict com métricas calculadas
+            actual_close: Preço real ou None se ainda não disponível
+            metrics: Dict com métricas calculadas ou None para valores pendentes
         
         Returns:
             Objeto ModelMetrics criado
