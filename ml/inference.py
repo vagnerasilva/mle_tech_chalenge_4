@@ -2,6 +2,7 @@ import datetime
 
 import numpy as np
 import pandas as pd
+import yfinance as yf
 
 from app.core.config import Settings
 from ml import model as model_loader
@@ -21,7 +22,35 @@ def predict_next_close(symbol: str, settings: Settings) -> tuple[float, datetime
 
     pred_scaled = model.predict(x_input, verbose=0)
     price = float(inverse_close(pred_scaled.flatten(), scaler, settings.num_features)[0])
+
     last_date = raw["Date"].iloc[-1]
-    return price, last_date.date() if hasattr(last_date, "date") else last_date
+    prediction_date = _get_next_trading_day(symbol, last_date)
+
+    return price, prediction_date
+
+
+def _get_next_trading_day(symbol: str, base_date: datetime.date | datetime.datetime) -> datetime.date:
+    if hasattr(base_date, "date"):
+        base_date = base_date.date()
+
+    try:
+        start = base_date + datetime.timedelta(days=1)
+        end = base_date + datetime.timedelta(days=14)
+        data = yf.download(symbol, start=start, end=end, progress=False)
+
+        if data.empty:
+            return start
+
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(0)
+
+        if isinstance(data.index, pd.DatetimeIndex):
+            trading_dates = [idx.date() for idx in data.index if idx.date() > base_date]
+            if trading_dates:
+                return min(trading_dates)
+
+        return start
+    except Exception:
+        return start
 
 

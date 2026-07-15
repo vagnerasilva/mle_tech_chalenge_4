@@ -39,10 +39,12 @@ class ModelMetrics(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     def __repr__(self):
+        actual_display = f"{self.actual_close:.4f}" if self.actual_close is not None else "None"
+        mae_display = f"{self.mae:.4f}" if self.mae is not None else "None"
         return (
             f"<ModelMetrics {self.symbol} "
             f"pred_date={self.prediction_date} "
             f"pred={self.predicted_close:.4f} "
-            f"actual={self.actual_close:.4f} "
-            f"mae={self.mae:.4f}>"
+            f"actual={actual_display} "
+            f"mae={mae_display}>"
         )

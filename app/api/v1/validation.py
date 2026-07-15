@@ -45,10 +45,17 @@ def validate_all_pending(
     """
     from app.models.metrics import ModelMetrics
     
-    # Busca todos os registros pendentes (actual_close = NULL)
+    # Busca todos os registros pendentes ou sem métricas calculadas
     pending_records = (
         db.query(ModelMetrics)
-        .filter(ModelMetrics.actual_close == None)
+        .filter(
+            (ModelMetrics.actual_close == None) |
+            (ModelMetrics.mae == None) |
+            (ModelMetrics.rmse == None) |
+            (ModelMetrics.mape == None) |
+            (ModelMetrics.directional_accuracy == None) |
+            (ModelMetrics.error_percentage == None)
+        )
         .all()
     )
     
