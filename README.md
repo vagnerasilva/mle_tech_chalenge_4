@@ -4,6 +4,9 @@
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.11+-009688.svg)
 ![LSTM](https://img.shields.io/badge/Model-Bidirectional%20LSTM-blue.svg)
+![Tests](https://img.shields.io/badge/tests-25%2B%20cases-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-~75%25-green.svg)
+![Rate Limiting](https://img.shields.io/badge/rate%20limiting-SQLite-informational.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 ## 📌 Sobre o Projeto
@@ -331,15 +334,16 @@ curl -X POST http://localhost:8000/api/v1/predict/single \
 ```
 
 ### Endpoints Protegidos
-- ✅ `POST /api/v1/predict/single` — Rate limited
-- ✅ `POST /api/v1/predict/batch` — Rate limited
-- ✅ `POST /api/v1/predict/sequence` — Rate limited
+- ✅ `POST /api/v1/predict/next_close` — Rate limited
 - ✅ `GET /api/v1/metrics/latest` — Rate limited
 - ✅ `GET /api/v1/logs` — Rate limited
+- ✅ `POST /api/v1/validation/validate` — Rate limited
+- ✅ `GET /api/v1/validation/summary` — Rate limited
+- ✅ `GET /api/v1/validation/metrics` — Rate limited
 
 ### Endpoints NÃO Afetados (Monitoramento)
-- ❌ `GET /health` — Sem limite
-- ❌ `GET /readiness` — Sem limite
+- ❌ `GET /api/v1/health/check` — Sem limite
+- ❌ `GET /api/v1/health/readiness` — Sem limite
 
 **💡 Tip:** Usar `/health` para monitoramento contínuo sem preocupação com rate limit.
 
@@ -350,6 +354,74 @@ curl -X POST http://localhost:8000/api/v1/predict/single \
 - **Limpeza automática**: Registros > 5 min removidos
 
 Para mais detalhes: 📖 [docs/rate-limiting.md](docs/rate-limiting.md)
+
+---
+
+## 📊 Monitoramento de Desempenho — Sistema de Validação
+
+A API implementa um **sistema completo de validação** que permite medir como o modelo LSTM está performando em produção.
+
+### O que é o Sistema de Validação?
+
+Compara **predições do modelo** com **preços reais do mercado** para calcular métricas de erro:
+- **MAE** (Mean Absolute Error) — Erro absoluto médio em USD
+- **RMSE** (Root Mean Squared Error) — Raiz do erro quadrado médio
+- **MAPE** (Mean Absolute Percentage Error) — Erro percentual médio (%)
+- **Directional Accuracy** — Taxa de acerto da direção do movimento (%)
+- **Error Percentage** — Erro percentual simples (%)
+
+### Endpoints de Validação
+
+#### **1. Validar Predições Pendentes**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/validation/validate
+```
+
+**Response:**
+```json
+{
+  "total_pending": 50,
+  "updated": 48,
+  "failed": 2,
+  "updated_records": [...]
+}
+```
+
+#### **2. Resumo de Validações (Por Período)**
+
+```bash
+curl "http://localhost:8000/api/v1/validation/summary?symbol=BBD&start_date=2026-07-01&end_date=2026-07-14"
+```
+
+**Response:**
+```json
+{
+  "symbol": "BBD",
+  "total_predictions": 50,
+  "validated": 48,
+  "pending": 2,
+  "avg_mae": 0.15,
+  "avg_mape": 2.3,
+  "avg_directional_accuracy": 0.67
+}
+```
+
+#### **3. Estatísticas Agregadas do Modelo**
+
+```bash
+curl "http://localhost:8000/api/v1/validation/metrics"
+```
+
+**Response:**
+```json
+{
+  "total_predictions": 150,
+  "avg_mae": 0.15,
+  "avg_mape": 2.8,
+  "avg_directional_accuracy": 0.65
+}
+```
 
 ---
 

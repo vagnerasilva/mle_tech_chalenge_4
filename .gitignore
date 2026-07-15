@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .env
 .pytest_cache/
+ATUALIZAR_README.md
+ESCOPO_VS_STATUS.md
+.DS_Store
