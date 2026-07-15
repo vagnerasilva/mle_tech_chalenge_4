@@ -60,6 +60,7 @@ def validate_all_pending(
     )
     
     updated_records = []
+    pending_count = 0
     failed_count = 0
     
     for record in pending_records:
@@ -87,7 +88,7 @@ def validate_all_pending(
                 
                 updated_records.append(MetricRecordResponse.model_validate(record))
             else:
-                failed_count += 1
+                pending_count += 1
                 
         except Exception as e:
             print(f"Erro ao validar predição {record.symbol} em {record.prediction_date}: {e}")
@@ -99,6 +100,7 @@ def validate_all_pending(
     return PendingValidationResponse(
         total_pending=len(pending_records),
         updated=len(updated_records),
+        pending=pending_count,
         failed=failed_count,
         updated_records=updated_records,
     )

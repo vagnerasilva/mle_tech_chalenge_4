@@ -97,7 +97,8 @@ class PendingValidationResponse(BaseModel):
     
     total_pending: int = Field(..., description="Total de predições pendentes encontradas")
     updated: int = Field(..., description="Quantas foram atualizadas com sucesso")
-    failed: int = Field(..., description="Quantas falharam ao buscar preço real")
+    pending: int = Field(..., description="Quantas ainda não têm preço real após essa tentativa")
+    failed: int = Field(..., description="Quantas falharam por erro de execução durante a validação")
     updated_records: list[MetricRecordResponse] = Field(..., description="Detalhes dos registros atualizados")
     
     model_config = ConfigDict(
@@ -106,7 +107,8 @@ class PendingValidationResponse(BaseModel):
                 {
                     "total_pending": 5,
                     "updated": 4,
-                    "failed": 1,
+                    "pending": 1,
+                    "failed": 0,
                     "updated_records": []
                 }
             ]
