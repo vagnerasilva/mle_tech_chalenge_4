@@ -22,18 +22,18 @@ class PredictionService:
 
     def predict_single(self, symbol: str) -> PredictResponse:
         try:
-            price, last_date = inference.predict_next_close(symbol, self.settings)
+            price, prediction_date = inference.predict_next_close(symbol, self.settings)
         except InsufficientDataError as exc:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
         
         # Salva a predição no banco de dados para monitoramento
         if self.db:
-            self._save_prediction_metric(symbol, last_date, price)
+            self._save_prediction_metric(symbol, prediction_date, price)
         
         return PredictResponse(
             symbol=symbol,
             predicted_close=price,
-            last_trading_date=last_date,
+            last_trading_date=prediction_date,
             look_back=self.settings.look_back,
         )
 

@@ -23,8 +23,10 @@ def predict_next_close(symbol: str, settings: Settings) -> tuple[float, datetime
     pred_scaled = model.predict(x_input, verbose=0)
     price = float(inverse_close(pred_scaled.flatten(), scaler, settings.num_features)[0])
 
-    last_date = raw["Date"].iloc[-1]
-    prediction_date = _get_next_trading_day(symbol, last_date)
+    raw_last_date = raw["Date"].iloc[-1]
+    last_available_date = raw_last_date.date() if hasattr(raw_last_date, "date") else raw_last_date
+    execution_date = datetime.date.today()
+    prediction_date = _get_next_trading_day(symbol, max(last_available_date, execution_date))
 
     return price, prediction_date
 
