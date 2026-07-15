@@ -509,7 +509,7 @@ O modelo utiliza **17 features** construídas a partir dos dados OHLCV:
 | **Bandas** | BB_Upper, BB_Lower | Bandas de Bollinger (20 dias) |
 
 **Preprocessamento:**
-- ✅ `RobustScaler` fit apenas no treino (sem data leakage)
+- ✅ `StandardScaler` fit apenas no treino (sem data leakage)
 - ✅ Sequências deslizantes com `LOOK_BACK` otimizado (60+ dias)
 - ✅ Split temporal: 70% treino | 15% validação | 15% teste
 
@@ -559,7 +559,7 @@ Todas as métricas são calculadas na **escala original (USD)** para melhor inte
 ┌─────────────────────────────────────────────────────────────┐
 │  2. Produção (models/)                                       │
 │     ├── best_lstm_model.keras  (modelo treinado)           │
-│     └── scaler.pkl             (RobustScaler persistido)   │
+│     └── scaler.pkl             (StandardScaler persistido)   │
 └────────────────────┬────────────────────────────────────────┘
                      │ Carregado na inicialização
                      ↓
@@ -583,7 +583,7 @@ Todas as métricas são calculadas na **escala original (USD)** para melhor inte
 
 **Garantias de Consistência:**
 - ✅ Features construídas identicamente (mesmo código)
-- ✅ RobustScaler persistent preserva parâmetros fit
+- ✅ StandardScaler persistent preserva parâmetros fit
 - ✅ LOOK_BACK e architecture idênticos entre notebook e API
 - ✅ Sem divergência entre treinamento e inferência
 
@@ -627,7 +627,7 @@ app/
 
 > **Nota Importante:** O modelo LSTM carregado nestes endpoints é **exatamente o modelo treinado no notebook** [docs/fase4_pos_mlet_organizado_(1).ipynb](docs/fase4_pos_mlet_organizado_(1).ipynb). 
 > 
-> Quando a API inicia, carrega o arquivo `models/best_lstm_model.keras` (melhor checkpoint do treinamento) e reutiliza o `RobustScaler` persistido para normalização consistente.
+> Quando a API inicia, carrega o arquivo `models/best_lstm_model.keras` (melhor checkpoint do treinamento) e reutiliza o `StandardScaler` persistido para normalização consistente.
 
 #### **Core — Health & Status**
 
@@ -799,7 +799,7 @@ curl -X POST http://localhost:8000/api/v1/train/start \
 | **Linguagem** | Python | 3.10+ | Desenvolvimento |
 | **API** | FastAPI | 0.104+ | Servidor web |
 | **Deep Learning** | TensorFlow + Keras | 2.13+ | Modelo LSTM Bidirectional |
-| **Preprocessamento** | scikit-learn | 1.3+ | RobustScaler, feature engineering |
+| **Preprocessamento** | scikit-learn | 1.3+ | StandardScaler, feature engineering |
 | **Dados** | Pandas | 2.0+ | Manipulação de séries temporais |
 | **Requisição HTTP** | yfinance | 0.2.32+ | Coleta de dados de ações |
 | **Testes** | pytest | 7.4+ | Testes unitários e integração |
@@ -808,7 +808,7 @@ curl -X POST http://localhost:8000/api/v1/train/start \
 **Dependências do Modelo:**
 - `TensorFlow>=2.13` — Bidirectional LSTM, BatchNormalization, Callbacks
 - `keras>=2.13` — Carregamento do modelo `.keras` (novo formato padrão)
-- `scikit-learn>=1.3` — RobustScaler (fit no notebook, used na API)
+- `scikit-learn>=1.3` — StandardScaler (fit no notebook, used na API)
 - `numpy` — Operações matemáticas nas sequências
 
 ---
@@ -938,7 +938,7 @@ Quando você faz uma requisição POST para `/api/v1/predict/single`, internamen
    - Código idêntico ao do notebook (`app/services/data.py`)
 
 3. **Normalização**
-   - Aplica o `RobustScaler` salvo do treinamento
+   - Aplica o `StandardScaler` salvo do treinamento
    - Garante consistência: mesmos parâmetros (min, max, quartis)
    - **Sem data leakage** — não refaz o fit nos dados de predição
 
