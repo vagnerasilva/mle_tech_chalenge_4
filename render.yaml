@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: mle-lstm-api
+    runtime: python
+    runtimeVersion: "3.11.8"
+    buildCommand: "pip install -r requirements-prod.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.8"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: PORT
+        value: "8000"
+      - key: APP_MODEL_PATH
+        value: "artifacts/modelo_lstm.keras"
+      - key: APP_SCALER_PATH
+        value: "artifacts/scaler.pkl"
+      - key: APP_DB_PATH
+        value: "data/database.db"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: DEBUG
+        value: "False"
