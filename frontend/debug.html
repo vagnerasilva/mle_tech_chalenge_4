@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - LSTM Frontend</title>
+    <style>
+        body { font-family: monospace; background: #f0f0f0; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 8px; max-width: 800px; margin: 0 auto; }
+        h1 { color: #2563eb; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d1fae5; color: #065f46; }
+        .error { background: #fee2e2; color: #991b1b; }
+        .warning { background: #fef3c7; color: #92400e; }
+        code { background: #f3f4f6; padding: 2px 6px; border-radius: 3px; }
+        pre { background: #f3f4f6; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug - LSTM Frontend</h1>
+
+        <h2>📋 Checklist de Carregamento:</h2>
+
+        <div id="checks"></div>
+
+        <h2>📊 Informações do Sistema:</h2>
+        <pre id="info"></pre>
+
+        <h2>🔗 Assets Carregados:</h2>
+        <ul id="assets"></ul>
+
+        <h2>🚀 Ações:</h2>
+        <button onclick="checkAPI()">✅ Verificar API</button>
+        <button onclick="clearConsole()">🗑️ Limpar Console</button>
+        <button onclick="reloadApp()">🔄 Recarregar App</button>
+
+        <div id="apiResult"></div>
+    </div>
+
+    <script>
+        const checks = document.getElementById('checks');
+        const info = document.getElementById('info');
+        const assets = document.getElementById('assets');
+
+        // Verificar carregamento
+        function addCheck(name, success, message = '') {
+            const div = document.createElement('div');
+            div.className = `status ${success ? 'success' : 'error'}`;
+            div.textContent = `${success ? '✅' : '❌'} ${name}${message ? ': ' + message : ''}`;
+            checks.appendChild(div);
+        }
+
+        // Verificar root element
+        setTimeout(() => {
+            const root = document.getElementById('root');
+            if (root) {
+                addCheck('Div #root', true, `encontrado, filhos: ${root.children.length}`);
+            } else {
+                addCheck('Div #root', false, 'não encontrado');
+            }
+        }, 100);
+
+        // Verificar React
+        setTimeout(() => {
+            if (typeof React !== 'undefined') {
+                addCheck('React', true, `versão ${React.version || 'carregado'}`);
+            } else {
+                addCheck('React', false, 'não carregado');
+            }
+        }, 500);
+
+        // Informações do sistema
+        info.textContent = `
+URL: ${window.location.href}
+User Agent: ${navigator.userAgent}
+Console Errors: Abra F12 para verificar
+Script Errors: Abra F12 para verificar
+        `.trim();
+
+        // Listar assets carregados
+        document.querySelectorAll('script, link[rel="stylesheet"]').forEach(el => {
+            const li = document.createElement('li');
+            if (el.tagName === 'SCRIPT') {
+                li.textContent = `📜 ${el.src}`;
+            } else {
+                li.textContent = `🎨 ${el.href}`;
+            }
+            assets.appendChild(li);
+        });
+
+        // Verificar API
+        async function checkAPI() {
+            const result = document.getElementById('apiResult');
+            result.innerHTML = '<p>Verificando API...</p>';
+
+            try {
+                const response = await fetch('/api/v1/health');
+                const data = await response.json();
+                result.innerHTML = `<div class="status success">✅ API OK: ${JSON.stringify(data)}</div>`;
+            } catch (e) {
+                result.innerHTML = `<div class="status error">❌ API erro: ${e.message}</div>`;
+            }
+        }
+
+        function clearConsole() {
+            console.clear();
+            alert('Console limpo');
+        }
+
+        function reloadApp() {
+            window.location.reload();
+        }
+
+        // Log automático
+        window.addEventListener('error', (e) => {
+            console.error('❌ Erro:', e.message, e.filename, e.lineno);
+        });
+
+        console.log('🔍 Debug page carregado');
+        console.log('Verificar para erros acima ⬆️');
+    </script>
+</body>
+</html>
