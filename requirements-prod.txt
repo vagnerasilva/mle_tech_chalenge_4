@@ -16,7 +16,7 @@ pydantic-settings==2.2.1
 # Data Science & Machine Learning
 yfinance==0.2.35
 pandas==2.2.3
-numpy==1.26.4
+numpy==1.24.3
 joblib==1.4.2
 
 # Machine Learning (versão compatível com Python 3.11)
