@@ -1,3 +1,239 @@
+# 📈 Tech Challenge Fase 4 — Previsão de Preços de Ações com Deep Learning
+
+![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.11+-009688.svg)
+![LSTM](https://img.shields.io/badge/Model-Bidirectional%20LSTM-blue.svg)
+![Tests](https://img.shields.io/badge/tests-25%2B%20cases-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-~75%25-green.svg)
+![Rate Limiting](https://img.shields.io/badge/rate%20limiting-SQLite-informational.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
+
+## 📌 Sobre o Projeto
+
+Este projeto foi desenvolvido como parte do **Tech Challenge – Fase 4** da Pós-Tech em Machine Learning Engineering.
+
+O objetivo consiste em construir uma solução completa para previsão do preço de fechamento de ações utilizando redes neurais recorrentes (**Long Short-Term Memory – LSTM**), contemplando todo o ciclo de desenvolvimento de um sistema de Machine Learning, desde a coleta dos dados históricos até a disponibilização do modelo em produção através de uma API REST.
+
+Diferentemente de um notebook exclusivamente voltado para experimentação, este projeto implementa uma pipeline completa de Machine Learning Engineering, incluindo:
+
+- coleta automática dos dados;
+- análise exploratória;
+- pré-processamento;
+- busca e ajuste de hiperparâmetros;
+- treinamento;
+- avaliação;
+- persistência do modelo;
+- API de inferência;
+- dashboard de monitoramento.
+
+---
+
+# 🎯 Objetivos
+
+O projeto busca atender às seguintes etapas do ciclo de vida de um modelo de Machine Learning:
+
+- Coletar automaticamente dados históricos de ações;
+- Realizar análise exploratória dos dados (EDA);
+- Construir uma pipeline de pré-processamento sem data leakage;
+- Treinar uma rede neural LSTM para previsão do preço de fechamento;
+- Avaliar o modelo utilizando métricas de regressão;
+- Exportar o modelo para produção;
+- Disponibilizar uma API REST utilizando FastAPI;
+- Disponibilizar dashboard para monitoramento das predições.
+
+---
+
+# 🏗 Arquitetura Geral
+
+O fluxo completo do projeto pode ser resumido conforme o diagrama abaixo.
+
+```
+
+Yahoo Finance
+
+↓
+
+Coleta dos dados
+
+↓
+
+Análise Exploratória (EDA)
+
+↓
+
+Pré-processamento
+
+• log1p
+
+• StandardScaler
+
+↓
+
+Construção das Sequências
+
+↓
+
+Bidirectional LSTM
+
+↓
+
+Avaliação
+
+↓
+
+Exportação
+
+(modelo + scaler)
+
+↓
+
+FastAPI
+
+↓
+
+Dashboard Streamlit
+
+```
+
+Todo o pipeline de inferência utilizado pela API reproduz exatamente o fluxo utilizado durante o treinamento, garantindo consistência entre ambiente de desenvolvimento e produção.
+
+---
+
+# 📂 Estrutura do Projeto
+
+```
+
+mle_tech_challenge_4/
+
+├── app.py
+├── app/
+│   ├── __init__.py
+│   └── static/
+│       ├── index.html
+│       └── assets/
+│           ├── index-DJh4hmGh.js
+│           └── index-DsDejwUj.css
+├── artifacts/
+│   ├── modelo_lstm.keras
+│   └── scaler.pkl
+├── docs/
+│   ├── documentacao_lstm_tech_challenge.md
+│   ├── oquefazer.md
+│   └── Pos_Tech - MLET - Tech Challenge Fase 4.pdf
+├── imgs/
+├── modelagem/
+│   └── fase4_MLET.ipynb
+├── README.md
+├── requirements copy.txt
+├── requirements-dev.txt
+└── requirements.txt
+
+```
+
+---
+
+# 📊 Base de Dados
+
+Os dados históricos são obtidos diretamente do **Yahoo Finance**, utilizando a biblioteca **yfinance**.
+
+Neste projeto foi utilizado o ativo:
+
+**Ticker:** BBD (Banco Bradesco ADR — NYSE)
+
+Período analisado:
+
+**Junho de 2020 até Junho de 2026**
+
+---
+
+# 📈 Variáveis Utilizadas
+
+O modelo utiliza apenas informações históricas do próprio ativo.
+
+| Feature | Descrição |
+|----------|-----------|
+| Open | Preço de abertura |
+| High | Maior preço do dia |
+| Low | Menor preço do dia |
+| Close | Preço de fechamento |
+| Volume | Volume negociado |
+
+O alvo do modelo consiste em prever o **preço de fechamento do próximo pregão**.
+
+---
+
+# 📊 Análise Exploratória
+
+Foi realizada uma análise exploratória completa da série temporal antes do treinamento.
+
+As principais etapas foram:
+
+- análise da série histórica;
+- histogramas;
+- boxplots;
+- estatísticas descritivas;
+- identificação de assimetria;
+- análise de outliers.
+
+A análise mostrou que:
+
+- as distribuições apresentavam forte assimetria positiva;
+- o Volume possuía cauda longa;
+- não foram encontrados outliers relevantes pelo método IQR;
+- as oscilações observadas representam regimes naturais do mercado e não erros de coleta.
+
+Dessa forma, optou-se por manter todos os registros da série temporal.
+
+---
+
+# ⚙️ Pipeline de Pré-processamento
+
+Após a análise exploratória foi definida a seguinte estratégia de pré-processamento.
+
+## 1. Transformação Logarítmica
+
+Todas as variáveis OHLCV recebem:
+
+```python
+np.log1p()
+```
+
+Essa transformação reduz a assimetria das distribuições e melhora a estabilidade do treinamento.
+
+---
+
+## 2. Normalização
+
+Após a transformação logarítmica é aplicado um:
+
+```python
+StandardScaler
+```
+
+O scaler é ajustado **exclusivamente no conjunto de treinamento**.
+
+Posteriormente os conjuntos de validação, teste e produção utilizam apenas:
+
+```python
+transform()
+```
+
+garantindo ausência de data leakage.
+
+---
+
+## 3. Divisão Temporal
+
+Os dados são divididos cronologicamente em:
+
+| Conjunto | Percentual |
+|-----------|-----------:|
+| Treino | 70% |
+| Validação | 15% |
+| Teste | 15% |
+
+Não é realizado embaralhamento dos dados (shuffle), preservando a ordem temporal da série.
 | ![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg) ![TensorFlow](https://img.shields.io/badge/framework-TensorFlow-FF6F00?logo=tensorflow) ![FastAPI](https://img.shields.io/badge/api-FastAPI-009688?logo=fastapi) ![LSTM](https://img.shields.io/badge/model-LSTM-blue.svg) ![Test Coverage](https://img.shields.io/badge/test%20coverage-target%3A70%25-green.svg) ![Render](https://img.shields.io/badge/deployed-Render.com-46E3B7?logo=render) ![MIT License](https://img.shields.io/badge/license-MIT-yellow.svg) |
 |:-----------------------------------------------:|
 
@@ -60,6 +296,132 @@ O dashboard de monitoramento está **disponível em produção**:
 | **Dashboard** | [https://mle-tech-chalenge-4-streamlit.onrender.com/](https://mle-tech-chalenge-4-streamlit.onrender.com/) | Visualização de métricas e performance |
 | **Docs Swagger** | [https://mle-tech-chalenge-4.onrender.com/docs](https://mle-tech-chalenge-4.onrender.com/docs) | Documentação interativa |
 | **Health Check** | [https://mle-tech-chalenge-4.onrender.com/health](https://mle-tech-chalenge-4.onrender.com/health) | Status da API |
+
+---
+
+## 🔐 Rate Limiting — Proteção contra Abuso
+
+A API implementa **rate limiting automático** para proteger contra abusos:
+
+### Limite Padrão
+- **10 requisições por IP** em uma **janela de 5 minutos**
+- 11ª requisição retorna **429 Too Many Requests**
+- Contador reseta automaticamente após 5 minutos
+
+### Comportamento
+
+**Requisição Permitida (1-10):**
+```bash
+curl -X POST http://localhost:8000/api/v1/predict/single \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"BBD"}'
+
+# Response: 200 OK (ou 422 se dados insuficientes)
+```
+
+**Requisição Bloqueada (11+):**
+```bash
+curl -X POST http://localhost:8000/api/v1/predict/single \
+  -H "Content-Type: application/json" \
+  -d '{"symbol":"BBD"}'
+
+# Response: 429 Too Many Requests
+# Header: Retry-After: 287
+{
+  "detail": "Limite de taxa excedido. Aguarde 287 segundos.",
+  "retry_after": 287
+}
+```
+
+### Endpoints Protegidos
+- ✅ `POST /api/v1/predict/next_close` — Rate limited
+- ✅ `GET /api/v1/metrics/latest` — Rate limited
+- ✅ `GET /api/v1/logs` — Rate limited
+- ✅ `POST /api/v1/validation/validate` — Rate limited
+- ✅ `GET /api/v1/validation/summary` — Rate limited
+- ✅ `GET /api/v1/validation/metrics` — Rate limited
+
+### Endpoints NÃO Afetados (Monitoramento)
+- ❌ `GET /api/v1/health/check` — Sem limite
+- ❌ `GET /api/v1/health/readiness` — Sem limite
+
+**💡 Tip:** Usar `/health` para monitoramento contínuo sem preocupação com rate limit.
+
+### Detalhes Técnicos
+- **Storage**: SQLite (`rate_limit_logs`)
+- **Janela deslizante**: Rastreia últimas 5 minutos
+- **IP Detection**: Suporta proxies (X-Forwarded-For, X-Real-IP)
+- **Limpeza automática**: Registros > 5 min removidos
+
+Para mais detalhes: 📖 [docs/rate-limiting.md](docs/rate-limiting.md)
+
+---
+
+## 📊 Monitoramento de Desempenho — Sistema de Validação
+
+A API implementa um **sistema completo de validação** que permite medir como o modelo LSTM está performando em produção.
+
+### O que é o Sistema de Validação?
+
+Compara **predições do modelo** com **preços reais do mercado** para calcular métricas de erro:
+- **MAE** (Mean Absolute Error) — Erro absoluto médio em USD
+- **RMSE** (Root Mean Squared Error) — Raiz do erro quadrado médio
+- **MAPE** (Mean Absolute Percentage Error) — Erro percentual médio (%)
+- **Directional Accuracy** — Taxa de acerto da direção do movimento (%)
+- **Error Percentage** — Erro percentual simples (%)
+
+### Endpoints de Validação
+
+#### **1. Validar Predições Pendentes**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/validation/validate
+```
+
+**Response:**
+```json
+{
+  "total_pending": 50,
+  "updated": 48,
+  "failed": 2,
+  "updated_records": [...]
+}
+```
+
+#### **2. Resumo de Validações (Por Período)**
+
+```bash
+curl "http://localhost:8000/api/v1/validation/summary?symbol=BBD&start_date=2026-07-01&end_date=2026-07-14"
+```
+
+**Response:**
+```json
+{
+  "symbol": "BBD",
+  "total_predictions": 50,
+  "validated": 48,
+  "pending": 2,
+  "avg_mae": 0.15,
+  "avg_mape": 2.3,
+  "avg_directional_accuracy": 0.67
+}
+```
+
+#### **3. Estatísticas Agregadas do Modelo**
+
+```bash
+curl "http://localhost:8000/api/v1/validation/metrics"
+```
+
+**Response:**
+```json
+{
+  "total_predictions": 150,
+  "avg_mae": 0.15,
+  "avg_mape": 2.8,
+  "avg_directional_accuracy": 0.65
+}
+```
 
 ---
 
@@ -147,7 +509,7 @@ O modelo utiliza **17 features** construídas a partir dos dados OHLCV:
 | **Bandas** | BB_Upper, BB_Lower | Bandas de Bollinger (20 dias) |
 
 **Preprocessamento:**
-- ✅ `RobustScaler` fit apenas no treino (sem data leakage)
+- ✅ `StandardScaler` fit apenas no treino (sem data leakage)
 - ✅ Sequências deslizantes com `LOOK_BACK` otimizado (60+ dias)
 - ✅ Split temporal: 70% treino | 15% validação | 15% teste
 
@@ -197,7 +559,7 @@ Todas as métricas são calculadas na **escala original (USD)** para melhor inte
 ┌─────────────────────────────────────────────────────────────┐
 │  2. Produção (models/)                                       │
 │     ├── best_lstm_model.keras  (modelo treinado)           │
-│     └── scaler.pkl             (RobustScaler persistido)   │
+│     └── scaler.pkl             (StandardScaler persistido)   │
 └────────────────────┬────────────────────────────────────────┘
                      │ Carregado na inicialização
                      ↓
@@ -221,7 +583,7 @@ Todas as métricas são calculadas na **escala original (USD)** para melhor inte
 
 **Garantias de Consistência:**
 - ✅ Features construídas identicamente (mesmo código)
-- ✅ RobustScaler persistent preserva parâmetros fit
+- ✅ StandardScaler persistent preserva parâmetros fit
 - ✅ LOOK_BACK e architecture idênticos entre notebook e API
 - ✅ Sem divergência entre treinamento e inferência
 
@@ -265,7 +627,7 @@ app/
 
 > **Nota Importante:** O modelo LSTM carregado nestes endpoints é **exatamente o modelo treinado no notebook** [docs/fase4_pos_mlet_organizado_(1).ipynb](docs/fase4_pos_mlet_organizado_(1).ipynb). 
 > 
-> Quando a API inicia, carrega o arquivo `models/best_lstm_model.keras` (melhor checkpoint do treinamento) e reutiliza o `RobustScaler` persistido para normalização consistente.
+> Quando a API inicia, carrega o arquivo `models/best_lstm_model.keras` (melhor checkpoint do treinamento) e reutiliza o `StandardScaler` persistido para normalização consistente.
 
 #### **Core — Health & Status**
 
@@ -437,7 +799,7 @@ curl -X POST http://localhost:8000/api/v1/train/start \
 | **Linguagem** | Python | 3.10+ | Desenvolvimento |
 | **API** | FastAPI | 0.104+ | Servidor web |
 | **Deep Learning** | TensorFlow + Keras | 2.13+ | Modelo LSTM Bidirectional |
-| **Preprocessamento** | scikit-learn | 1.3+ | RobustScaler, feature engineering |
+| **Preprocessamento** | scikit-learn | 1.3+ | StandardScaler, feature engineering |
 | **Dados** | Pandas | 2.0+ | Manipulação de séries temporais |
 | **Requisição HTTP** | yfinance | 0.2.32+ | Coleta de dados de ações |
 | **Testes** | pytest | 7.4+ | Testes unitários e integração |
@@ -446,7 +808,7 @@ curl -X POST http://localhost:8000/api/v1/train/start \
 **Dependências do Modelo:**
 - `TensorFlow>=2.13` — Bidirectional LSTM, BatchNormalization, Callbacks
 - `keras>=2.13` — Carregamento do modelo `.keras` (novo formato padrão)
-- `scikit-learn>=1.3` — RobustScaler (fit no notebook, used na API)
+- `scikit-learn>=1.3` — StandardScaler (fit no notebook, used na API)
 - `numpy` — Operações matemáticas nas sequências
 
 ---
@@ -576,7 +938,7 @@ Quando você faz uma requisição POST para `/api/v1/predict/single`, internamen
    - Código idêntico ao do notebook (`app/services/data.py`)
 
 3. **Normalização**
-   - Aplica o `RobustScaler` salvo do treinamento
+   - Aplica o `StandardScaler` salvo do treinamento
    - Garante consistência: mesmos parâmetros (min, max, quartis)
    - **Sem data leakage** — não refaz o fit nos dados de predição
 
@@ -593,282 +955,170 @@ Quando você faz uma requisição POST para `/api/v1/predict/single`, internamen
 
 ---
 
-## ✅ Testes
+## Dropout
 
-### Execução Completa
-```bash
-# Rodar todos os testes
-pytest -v
+Foi utilizado Dropout em diferentes pontos da arquitetura para reduzir a dependência entre neurônios e minimizar overfitting.
 
-# Com cobertura
-pytest --cov=app --cov-report=html tests/
+A taxa escolhida foi:
 
-# Modo rápido
-pytest -q --tb=short
+```
+0.30
 ```
 
-### Testes Incluídos
-- ✓ Testes de pré-processamento (data.py)
-- ✓ Testes de inferência (model.py)
-- ✓ Testes de endpoints (routers)
-- ✓ Testes de integração (treino + predição)
-
-**Meta de cobertura**: >= 70%
+nas camadas recorrentes.
 
 ---
 
-## � Reprodutibilidade e Rastreabilidade do Modelo
+## Regularização L2
 
-### Como Rastrear o Modelo da API até o Notebook
+As camadas LSTM utilizam penalização L2 sobre os pesos da rede.
 
-1. **API Carrega:** `models/best_lstm_model.keras` + `scaler.pkl`
-2. **Estes artifacts foram salvos por:** `docs/fase4_pos_mlet_organizado_(1).ipynb`
-3. **Reproduzir exatamente:** Execute todas as células do notebook com o mesmo hardware/seed
-
-### Verificação de Consistência
-
-```python
-# No notebook (após treino):
-model.save('models/best_lstm_model.keras')
-with open('scaler.pkl', 'wb') as f:
-    pickle.dump(scaler, f)
-
-# Na API (ao carregar):
-model = tf.keras.models.load_model('models/best_lstm_model.keras')
-with open('scaler.pkl', 'rb') as f:
-    scaler = pickle.load(f)
-# → Garante mesmos pesos e parâmetros de normalização
-```
-
-### Seeds e Configurações Fixas
-
-Para garantir reprodutibilidade total:
-```bash
-# No notebook:
-tf.random.set_seed(42)
-np.random.seed(42)
-```
-
-### Artefatos Críticos
-
-| Arquivo | Origem | Célula | Uso |
-|---------|--------|--------|-----|
-| `models/best_lstm_model.keras` | Notebook | ~40 | Carregado na API para inferência |
-| `scaler.pkl` | Notebook | ~18 | Normalização consistente na API e notebook |
-| `logs/train.log` | Notebook | Cada execução | Rastreabilidade completa de hiperparâmetros |
+Essa estratégia reduz o crescimento excessivo dos parâmetros durante o treinamento e melhora a capacidade de generalização.
 
 ---
 
-## �📚 Documentação da API
+# ⚙ Processo de Treinamento
 
-Após iniciar a API localmente, acesse a documentação interativa:
+O treinamento foi realizado utilizando o otimizador **Adam**, amplamente empregado em problemas de Deep Learning devido à sua estabilidade e rápida convergência.
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+Configuração utilizada:
 
-### Em Produção
-A documentação completa da API em produção está disponível em:
+| Parâmetro | Valor |
+|------------|------:|
+| Optimizer | Adam |
+| Learning Rate | 0.0001 |
+| Loss | MAE |
+| Batch Size | 16 |
 
-- **Swagger UI**: https://mle-tech-chalenge-4.onrender.com/docs
-- **ReDoc**: https://mle-tech-chalenge-4.onrender.com/redoc
-
-A documentação é gerada automaticamente a partir das docstrings FastAPI.
-
----
-
-## 📊 Estrutura de Arquivos
-
-```
-mle_tech_chalenge_4/
-├── docs/
-│   ├── fase4_pos_mlet_organizado_(1).ipynb  # 🔴 NOTEBOOK PRINCIPAL DO MODELO
-│   ├── db_models.md
-│   ├── scraping_architecture.drawio
-│   └── uml/
-├── app/
-│   ├── __init__.py
-│   ├── main.py                 # Orquestração da API
-│   ├── config.py               # Variáveis de ambiente
-│   ├── routers/
-│   │   ├── health.py
-│   │   ├── predict.py
-│   │   ├── train.py
-│   │   └── metrics.py
-│   ├── services/
-│   │   ├── model.py            # Carrega best_lstm_model.keras
-│   │   ├── data.py             # 17 features (idêntico ao notebook)
-│   │   └── training.py         # Lógica de treinamento
-│   └── schemas/                # Validação Pydantic
-├── models/
-│   ├── best_lstm_model.keras   # 🟢 MODELO TREINADO (salvo do notebook)
-│   ├── scaler.pkl              # 🟢 SCALER PERSISTIDO (salvo do notebook)
-│   └── checkpoints/            # Checkpoints intermediários
-├── logs/
-│   ├── train.log               # Logs de treinamento
-│   └── api.log                 # Logs da API
-├── data/
-│   └── precos_fechamento.csv   # Dataset histórico (yfinance)
-├── tests/
-│   ├── test_model.py
-│   ├── test_data.py
-│   ├── test_routers.py
-│   └── test_integration.py
-├── scripts/
-│   ├── train.sh                # Script de treinamento
-│   └── download_data.py        # Download via yfinance
-├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
-├── requirements.txt            # Dependências Python
-├── pytest.ini                  # Configuração pytest
-└── README.md                   # Este arquivo
-```
-
-**Legenda:**
-- 🔴 **NOTEBOOK PRINCIPAL** — Onde o modelo é desenvolvido e validado
-- 🟢 **ARTIFACTS PERSISTIDOS** — Gerados pelo notebook, usados pela API
+O treinamento foi monitorado continuamente utilizando métricas calculadas na escala original do problema.
 
 ---
 
-## 🔄 Versionamento da API
+# 🔄 Callbacks
 
-Esta API utiliza **versionamento por URL**, identificado pelo prefixo `/api/v1`.
+Para tornar o treinamento mais eficiente foram utilizados quatro callbacks principais.
 
-### Estratégia adotada
+## EarlyStopping
 
-**v1** — Primeira versão estável
-- Endpoints core: predict, train, metrics, health
-- Covos modelos (Transformer, GRU, etc.)
-- NoDashboard de Monitoramento
-O monitoramento da API e análise de predições é realizado através de um **dashboard Streamlit** hospedado separadamente:
+Interrompe automaticamente o treinamento quando não há melhoria significativa na métrica monitorada.
 
-```
-Repositório: https://github.com/vagnerasilva/mle_tech_chalenge_4_streamlit
-```
+Benefícios:
 
-**Funcionalidades do Dashboard:**
-- 📊 Visualização em tempo real de predições
-- 📈 Gráficos de performance do modelo
-- 🔍 Análise comparativa de métricas
-- 📉 Histórico de treinamentos
-- ⚡ Monitoramento de latência e throughput da API
-
-### vos tipos de dados (multi-asset, multi-timeframe)
-- Autenticação e rate limiting
-
-### Benefícios
-- Evita quebra de integrações existentes
-- Facilita evolução da API
-- Garante reprodutibilidade de experimentos
+- evita overfitting;
+- reduz tempo de treinamento;
+- restaura automaticamente os melhores pesos.
 
 ---
 
-## 🔒 Segurança & Monitoramento
+## ReduceLROnPlateau
 
-### Logs Estruturados
-```json
-{
-  "timestamp": "2024-07-20T14:30:00Z",
-  "level": "INFO",
-  "service": "predict",
-  "symbol": "PETR4.SA",
-  "inference_time_ms": 45.3,
-  "model_version": "1.0",
-  "status": "success"
-}
-```
+Quando o treinamento atinge um platô, o learning rate é reduzido automaticamente.
 
-### Health Checks
-- Verifica status do modelo carregado
-- Valida acesso a dados
-- Monitora tempo de resposta
-
-### Readiness Probe
-- Indica se API está pronta para tráfego
-- Aguarda modelo completar carregamento
+Essa estratégia melhora o refinamento da solução nas últimas épocas.
 
 ---
 
-## � Deploy em Produção (Render.com)
+## ModelCheckpoint
 
-A API está **deployada e disponível** no Render.com:
+Salva automaticamente o melhor modelo encontrado durante o treinamento.
 
-### URL de Produção
+O arquivo exportado é:
+
 ```
-https://mle-tech-chalenge-4.onrender.com/
+modelo_lstm.keras
 ```
-
-### Endpoints de Produção
-
-**Health Check:**
-```bash
-curl https://mle-tech-chalenge-4.onrender.com/health
-```
-
-**Predição (Production):**
-```bash
-curl -X POST https://mle-tech-chalenge-4.onrender.com/api/v1/predict/single \
-  -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "PETR4.SA",
-    "days_back": 60,
-    "days_ahead": 5
-  }'
-```
-
-**Documentação Swagger (Production):**
-```
-https://mle-tech-chalenge-4.onrender.com/docs
-```
-
-### Observações sobre Produção
-- ✅ Modelo pré-carregado e otimizado
-- ✅ Logs estruturados em produção
-- ✅ Health checks contínuos
-- ✅ Tempo de resposta: ~50-100ms para predições
-## 📦 Repositórios Relacionados & Ambientes em Produção
-
-### Repositórios
-- **[mle_tech_chalenge_4](https://github.com/vagnerasilva/mle_tech_chalenge_4)** — API FastAPI com modelo LSTM *(este repositório)*
-- **[mle_tech_chalenge_4_streamlit](https://github.com/vagnerasilva/mle_tech_chalenge_4_streamlit)** — Dashboard de monitoramento e análise
-- **[mle_tech_chalenge_1](https://github.com/vagnerasilva/mle_tech_chalenge_1)** — API de consulta de livros (projeto anterior)
-
-### Ambientes em Produção (Render.com)
-| Ambiente | URL | Descrição |
-|----------|-----|-----------|
-| **API FastAPI** | [https://mle-tech-chalenge-4.onrender.com/](https://mle-tech-chalenge-4.onrender.com/) | Endpoints de predição e inferência |
-| **Dashboard Streamlit** | [https://mle-tech-chalenge-4-streamlit.onrender.com/](https://mle-tech-chalenge-4-streamlit.onrender.com/) | Monitoramento e análise de performance |
-| **Docs Swagger** | [https://mle-tech-chalenge-4.onrender.com/docs](https://mle-tech-chalenge-4.onrender.com/docs) | Documentação interativa da API |
 
 ---
 
-## �📞 Suporte & Contribuição
+## RealMapeCallback
 
-- **Issues & PRs**: Abrir no repositório GitHub
-- **Documentação**: Ver `docs/` e docstrings do código
-- **Contato**: Vagner Antônio da Silva
+Foi implementado um callback personalizado responsável por calcular o MAPE na escala original dos preços.
 
----
+A cada época o callback realiza automaticamente:
 
-## 📄 Licença
+- inverse_transform do StandardScaler;
+- aplicação de expm1;
+- cálculo do MAPE em USD.
 
-Este projeto está sob licença **MIT**.
-
----
-
-## 🎯 Próximos Passos
-
-1. Finalizar implementação da arquitetura LSTM
-2. Criar suite completa de testes
-3. Deploy em produção (Heroku / Cloud)
-4. Implementar monitoramento e alertas
-5. Otimizar performance (GPU, caching)
+Dessa forma, todas as decisões de treinamento são tomadas utilizando uma métrica diretamente interpretável pelo negócio.
 
 ---
 
-**Tech Challenge Fase 4 — Deep Learning & IA**  
-*Pós Tech MLET | Desenvolvido com ❤️ em Python*
-- Cecilia
-- Pedro 
+# 📈 Curvas de Aprendizado
 
-ç
+Durante o treinamento foram monitoradas duas métricas principais:
+
+- Loss (MAE normalizado);
+- MAPE em escala real.
+
+As curvas obtidas indicaram:
+
+- convergência estável;
+- ausência de overfitting severo;
+- boa capacidade de generalização;
+- redução consistente do erro ao longo das épocas.
+
+O EarlyStopping interrompeu o treinamento automaticamente quando não havia mais ganho significativo de desempenho.
+
+---
+
+# 📊 Avaliação do Modelo
+
+Após o treinamento, o modelo foi avaliado em um conjunto de teste completamente isolado, nunca utilizado durante o ajuste dos pesos ou dos hiperparâmetros.
+
+As métricas foram calculadas na escala original (USD).
+
+| Métrica | Resultado |
+|----------|----------:|
+| MAE | **0.0297 USD** |
+| RMSE | **0.0386 USD** |
+| MAPE | **1.94%** |
+| Acurácia Direcional | **40.31%** |
+
+O baixo valor de MAPE indica que o modelo apresenta elevada precisão na previsão do preço de fechamento do ativo.
+
+---
+
+# 📉 Análise dos Resultados
+
+A análise visual das previsões mostrou que o modelo consegue acompanhar adequadamente a tendência geral da série temporal.
+
+Observou-se que:
+
+- o modelo acompanha bem movimentos de médio prazo;
+- erros maiores concentram-se em períodos de alta volatilidade;
+- ocorre pequena defasagem em pontos de reversão abrupta, comportamento esperado em modelos autoregressivos baseados em LSTM.
+
+O gráfico de dispersão entre valores reais e previstos apresentou forte correlação linear, indicando boa capacidade preditiva.
+
+---
+
+# 🚶 Walk-Forward Validation
+
+Além da divisão tradicional entre treino, validação e teste, foi implementada uma estratégia de **Walk-Forward Validation**.
+
+Nessa abordagem o modelo é avaliado em múltiplas janelas temporais sucessivas, simulando o comportamento encontrado em ambiente de produção.
+
+Embora a implementação esteja presente no notebook, a execução completa não foi finalizada durante os experimentos devido ao elevado tempo computacional.
+
+Ainda assim, a estrutura permanece disponível para futuras reavaliações do modelo.
+
+---
+
+# 💾 Exportação do Modelo
+
+Após o treinamento são persistidos dois artefatos fundamentais:
+
+```
+modelo_lstm.keras
+```
+
+Modelo treinado contendo arquitetura e pesos.
+
+```
+scaler.pkl
+```
+
+Objeto `StandardScaler` utilizado durante o treinamento.
+
+A API utiliza exatamente esses mesmos artefatos durante a inferência, garantindo que o pipeline de produção seja idêntico ao utilizado no desenvolvimento do modelo.

@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: mle-lstm-api
+    runtime: python
+    runtimeVersion: "3.13.12"
+    buildCommand: "pip install --upgrade pip setuptools wheel && pip install -r requirements-prod.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: HOST
+        value: "0.0.0.0"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: DEBUG
+        value: "False"
+      - key: APP_CORS_ORIGINS
+        value: '["*"]'
+      - key: APP_MODEL_PATH
+        value: "artifacts/modelo_lstm.keras"
+      - key: APP_SCALER_PATH
+        value: "artifacts/scaler.pkl"
+      - key: APP_DB_PATH
+        value: "data/database.db"
+      - key: APP_LOOK_BACK
+        value: "30"
+      - key: APP_FEATURE_COLS
+        value: '["Close", "High", "Low", "Open", "Volume"]'
+      - key: APP_RATE_LIMIT_MAX_REQUESTS
+        value: "10"
+      - key: APP_RATE_LIMIT_WINDOW_SECONDS
+        value: "300"
