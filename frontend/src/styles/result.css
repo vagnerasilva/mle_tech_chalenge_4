@@ -1,0 +1,174 @@
+.result-card {
+  background: var(--white);
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+  animation: slideIn 0.3s ease-in-out;
+}
+
+.result-header {
+  border-bottom: 2px solid var(--primary);
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+
+.result-header h2 {
+  color: var(--primary);
+  margin-bottom: 8px;
+}
+
+.result-date {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.result-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: #f0f9ff;
+  border-radius: 8px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-item label {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.info-item strong {
+  font-size: 1.3rem;
+  color: var(--text);
+}
+
+.company-info {
+  font-size: 0.85rem;
+  color: var(--text-light);
+  font-weight: normal;
+  margin-top: 4px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.metric {
+  background: #f3f4f6;
+  padding: 15px;
+  border-radius: 8px;
+  text-align: center;
+  border-left: 4px solid var(--primary);
+}
+
+.metric label {
+  display: block;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+}
+
+.metric span {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.predictions {
+  margin-top: 30px;
+}
+
+.predictions h3 {
+  color: var(--text);
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.predictions-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.predictions-table thead {
+  background-color: #f3f4f6;
+  border-bottom: 2px solid var(--border);
+}
+
+.predictions-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.predictions-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.prediction-box {
+  background: linear-gradient(135deg, #f0f9ff, #dbeafe);
+  border: 2px solid var(--primary);
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 15px;
+}
+
+.prediction-text {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: var(--text);
+  margin-bottom: 15px;
+}
+
+.prediction-text strong {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.prediction-detail {
+  background: white;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--text-light);
+  line-height: 1.8;
+}
+
+@media (max-width: 768px) {
+  .result-card {
+    padding: 20px;
+  }
+
+  .result-info {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .predictions-table {
+    font-size: 0.9rem;
+  }
+
+  .predictions-table th,
+  .predictions-table td {
+    padding: 8px;
+  }
+}
