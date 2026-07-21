@@ -9,23 +9,23 @@
 # - Wheels pré-compilados (sem compilação C)
 
 # API Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic-settings==2.1.0
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic-settings==2.2.1
 
 # Data Science & Machine Learning
-yfinance==0.2.32
-pandas==2.1.3
-numpy==1.26.3
-joblib==1.3.2
+yfinance==0.2.35
+pandas==2.2.3
+numpy==1.26.4
+joblib==1.4.2
 
 # Machine Learning (versão compatível com Python 3.11)
 # TensorFlow 2.13.x é o máximo para Python 3.11
 tensorflow==2.13.1
-scikit-learn==1.3.2
+scikit-learn==1.4.2
 
 # Database
-sqlalchemy==2.0.23
+sqlalchemy==2.0.28
 
 # Utilities
 python-multipart==0.0.6
