@@ -1,31 +1,31 @@
 # ========================================
-# PRODUÇÃO — Dependências Otimizadas
+# PRODUÇÃO — Python 3.12 Optimized
 # ========================================
 # Use este arquivo no Render: pip install -r requirements-prod.txt
 #
-# Versões pinadas para máxima compatibilidade com:
-# - Python 3.11 (compatível com TensorFlow)
-# - Render.com deployment
-# - Wheels pré-compilados (sem compilação C)
+# Versões pinadas para Python 3.12:
+# - TensorFlow 2.16+ (compatível com Python 3.12)
+# - Pydantic 2.x com typing-extensions resolvido
+# - Todos os pacotes com wheels pré-compilados
 
 # API Framework
-fastapi==0.100.0
-uvicorn[standard]==0.23.2
-pydantic-settings==2.1.0
+fastapi==0.109.1
+uvicorn[standard]==0.27.0
+pydantic-settings==2.2.1
 
 # Data Science & Machine Learning
 yfinance==0.2.35
 pandas==2.2.3
-numpy==1.24.3
+numpy==1.26.4
 joblib==1.4.2
 
-# Machine Learning (versão compatível com Python 3.11)
-# TensorFlow 2.13.x é o máximo para Python 3.11
-tensorflow==2.13.1
+# Machine Learning - TensorFlow 2.16+ para Python 3.12
+# Suporta typing-extensions >= 4.6.0
+tensorflow==2.16.0
 scikit-learn==1.4.2
 
 # Database
-sqlalchemy==1.4.46
+sqlalchemy==2.0.28
 
 # Utilities
 python-multipart==0.0.6
