@@ -36,8 +36,25 @@ export default function Dashboard() {
     }).format(price)
   }
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('pt-BR')
+  const formatDate = (dateString) => {
+    // Parse a data no formato YYYY-MM-DD sem conversão de timezone
+    const [year, month, day] = dateString.split('-')
+    return `${day}/${month}/${year}`
+  }
+
+  const isWeekend = (dateString) => {
+    // Parse sem timezone: YYYY-MM-DD
+    const [year, month, day] = dateString.split('-').map(Number)
+    const date = new Date(year, month - 1, day)
+    const dayOfWeek = date.getDay()
+    return dayOfWeek === 0 || dayOfWeek === 6 // 0 = domingo, 6 = sábado (FDS = sábado e domingo)
+  }
+
+  const getStatusLabel = (record) => {
+    if (record.actual_close) {
+      return '✅ Validado'
+    }
+    return isWeekend(record.prediction_date) ? '🅵🅳🆂 FDS' : '⏳ Pendente'
   }
 
   return (
@@ -220,8 +237,8 @@ export default function Dashboard() {
                         ? record.error_percentage.toFixed(2) + '%'
                         : '-'}
                     </td>
-                    <td className={record.actual_close ? 'validated' : 'pending'}>
-                      {record.actual_close ? '✅ Validado' : '⏳ Pendente'}
+                    <td className={record.actual_close ? 'validated' : (isWeekend(record.prediction_date) ? 'weekend' : 'pending')}>
+                      {getStatusLabel(record)}
                     </td>
                   </tr>
                 ))}

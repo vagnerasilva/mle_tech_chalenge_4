@@ -23,7 +23,8 @@ export default function Prediction() {
   const [yAxisMin, setYAxisMin] = useState(2.5)
   const [showScaleEditor, setShowScaleEditor] = useState(false)
   const [customMin, setCustomMin] = useState('2.5')
-  const [aggregationMethod, setAggregationMethod] = useState('average') // 'average' ou 'minError'
+  const [aggregationMethod, setAggregationMethod] = useState('average') // 'average', 'minError', ou 'single'
+  const [lastPredictionTime, setLastPredictionTime] = useState(null)
 
   const predictApi = useApi(apiClient.predict)
   const historyApi = useApi(() => apiClient.getValidationHistory(null, null, 30))
@@ -36,15 +37,23 @@ export default function Prediction() {
   // Preparar dados do gráfico - manter todos os pontos individuais
   useEffect(() => {
     if (historyApi.data && historyApi.data.length > 0) {
-      const data = historyApi.data.map((record, index) => ({
-        date: new Date(record.prediction_date).toLocaleDateString('pt-BR'),
-        actual: record.actual_close,
-        predicted: record.predicted_close,
-        timestamp: new Date(record.prediction_date).getTime(),
-        error: record.error_percentage || 0,
-        key: `${record.prediction_date}-${index}`,
-        index: index, // Índice para eixo X
-      }))
+      const now = Date.now()
+      const data = historyApi.data.map((record, index) => {
+        // Marcar como isPrediction se foi criado nos últimos 30 segundos
+        const createdAt = new Date(record.created_at).getTime()
+        const isRecent = lastPredictionTime && (now - lastPredictionTime) < 30000
+        const isPredictionPoint = isRecent && (now - createdAt) < 30000
+
+        return {
+          date: new Date(record.prediction_date).toLocaleDateString('pt-BR'),
+          actual: record.actual_close,
+          predicted: record.predicted_close,
+          timestamp: new Date(record.prediction_date).getTime(),
+          error: record.error_percentage || 0,
+          key: `${record.prediction_date}-${index}`,
+          isPrediction: isPredictionPoint,
+        }
+      })
 
       // Ordenar por timestamp, depois por predicted (para visualização)
       data.sort((a, b) => {
@@ -52,30 +61,32 @@ export default function Prediction() {
         return a.predicted - b.predicted
       })
 
-      // Re-indexar para manter ordem no gráfico
+      // Adicionar xAxisId baseado na primeira posição de cada data única
+      let lastDate = null
+      let dateStartIndex = 0
       data.forEach((d, i) => {
+        if (d.date !== lastDate) {
+          dateStartIndex = i
+          lastDate = d.date
+        }
+        d.xAxisId = dateStartIndex // Todos os pontos da mesma data recebem o mesmo xAxisId
         d.index = i
       })
 
       setChartData(data)
     }
-  }, [historyApi.data])
+  }, [historyApi.data, lastPredictionTime])
 
   const handlePredict = async () => {
     const result = await predictApi.execute()
     if (result) {
       setPrediction(result)
+      setLastPredictionTime(Date.now())
 
-      // Adicionar previsão ao gráfico
-      const newDataPoint = {
-        date: new Date().toLocaleDateString('pt-BR'),
-        predicted: result.predicted_close,
-        actual: null,
-        isPrediction: true,
-        timestamp: new Date().getTime(),
-      }
-
-      setChartData((prev) => [...prev, newDataPoint].sort((a, b) => a.timestamp - b.timestamp))
+      // Carregar dados atualizados da API após a previsão
+      setTimeout(() => {
+        historyApi.execute()
+      }, 500)
     }
   }
 
@@ -130,9 +141,26 @@ export default function Prediction() {
   const calculateTrendline = () => {
     if (chartData.length < 2) return null
 
+    // Se modo 'single', filtrar apenas o ponto com menor erro por data
+    let dataToUse = chartData
+    if (aggregationMethod === 'single') {
+      const grouped = {}
+      chartData.forEach((d) => {
+        if (!grouped[d.date]) {
+          grouped[d.date] = d
+        } else {
+          // Manter o ponto com menor erro
+          if (d.error < grouped[d.date].error) {
+            grouped[d.date] = d
+          }
+        }
+      })
+      dataToUse = Object.values(grouped)
+    }
+
     // Agrupar por data para consolidação
     const grouped = {}
-    chartData.forEach((d) => {
+    dataToUse.forEach((d) => {
       if (!grouped[d.date]) {
         grouped[d.date] = {
           date: d.date,
@@ -148,13 +176,12 @@ export default function Prediction() {
     const consolidatedByDate = Object.values(grouped).map((group) => {
       let predicted = group.predictions[0]
 
-      if (group.predictions.length > 1) {
+      if (group.predictions.length > 1 && aggregationMethod !== 'single') {
         if (aggregationMethod === 'average') {
           predicted = group.predictions.reduce((sum, p) => sum + p, 0) / group.predictions.length
         } else if (aggregationMethod === 'minError') {
-          // Usar a previsão com menor erro (primeira previsão tem menor erro por padrão)
-          // Se houver dados de erro nos chartData, usar o de menor erro
-          const dataForDate = chartData.filter((d) => d.date === group.date)
+          // Usar a previsão com menor erro
+          const dataForDate = dataToUse.filter((d) => d.date === group.date)
           const minErrorData = dataForDate.reduce((min, d) => d.error < min.error ? d : min)
           predicted = minErrorData.predicted
         }
@@ -177,17 +204,23 @@ export default function Prediction() {
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
     const intercept = (sumY - slope * sumX) / n
 
-    // Mapear tendência para os dados originais mantendo todos os pontos
+    // Mapear tendência - manter todos os pontos originais mas apenas na linha de tendência
     return chartData.map((d) => {
       const dateIndex = consolidatedByDate.findIndex((cd) => cd.date === d.date)
+      const isHidden = aggregationMethod === 'single' && !dataToUse.find((du) => du.index === d.index)
+
       return {
         ...d,
         trend: intercept + slope * dateIndex,
+        hidden: isHidden,
+        // Quando em modo 'single', mostrar null para pontos escondidos (a linha pula esses pontos)
+        displayPredicted: isHidden ? null : d.predicted,
       }
     })
   }
 
   const trendlineData = calculateTrendline()
+
 
   return (
     <div className="prediction-page">
@@ -287,6 +320,12 @@ export default function Prediction() {
             >
               ✅ Menor Erro
             </button>
+            <button
+              onClick={() => setAggregationMethod('single')}
+              className={`selector-btn ${aggregationMethod === 'single' ? 'active' : ''}`}
+            >
+              🏆 Único Campeão
+            </button>
           </div>
         </div>
 
@@ -297,23 +336,18 @@ export default function Prediction() {
             <LineChart data={trendlineData || chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis
-                dataKey="index"
+                dataKey="xAxisId"
                 stroke="#6b7280"
                 style={{ fontSize: '12px' }}
-                tickFormatter={(index) => {
+                type="number"
+                domain="dataMin"
+                tickFormatter={(xAxisId) => {
+                  // Mostrar a data do primeiro ponto com este xAxisId
                   const data = trendlineData || chartData
-                  const currentData = data[index]
-                  const prevData = index > 0 ? data[index - 1] : null
-
-                  // Mostrar apenas a primeira ocorrência de cada data única
-                  if (!prevData || prevData.date !== currentData.date) {
-                    return currentData.date
-                  }
-                  return ''
+                  const firstPointWithId = data.find((d) => d.xAxisId === xAxisId)
+                  return firstPointWithId ? firstPointWithId.date : ''
                 }}
                 tick={{ fontSize: 12 }}
-                interval={0}
-                height={60}
               />
               <YAxis
                 stroke="#6b7280"
@@ -385,23 +419,19 @@ export default function Prediction() {
               {/* Previsões */}
               <Line
                 type="monotone"
-                dataKey="predicted"
+                dataKey={aggregationMethod === 'single' ? 'displayPredicted' : 'predicted'}
                 stroke="#2563eb"
                 strokeWidth={2}
                 name="Previsão LSTM"
                 connectNulls={true}
                 dot={(props) => {
                   const { cx, cy, payload } = props
+                  const data = trendlineData || chartData
 
-                  // Contar quantos pontos existem nesta data
-                  const pointsInDate = chartData.filter((d) => d.date === payload.date).length
-                  const indicesForDate = chartData
-                    .map((d, i) => ({ index: i, date: d.date }))
-                    .filter((d) => d.date === payload.date)
-                    .map((d) => d.index)
-
-                  const currentIndex = payload.index
-                  const indexInDate = indicesForDate.indexOf(currentIndex)
+                  // Esconder pontos quando em modo 'single'
+                  if (payload.hidden) {
+                    return null
+                  }
 
                   if (payload.isPrediction) {
                     return (
@@ -416,22 +446,39 @@ export default function Prediction() {
                     )
                   }
 
-                  // Se múltiplos pontos na mesma data, distribuir verticamente com offset
+                  // Encontrar todos os pontos neste xAxisId
+                  const pointsInGroup = data.filter((d) => d.xAxisId === payload.xAxisId && !d.isPrediction)
+
+                  // Encontrar valores Y únicos neste grupo
+                  const uniqueYValues = [...new Set(pointsInGroup.map((d) => d.predicted))].sort((a, b) => a - b)
+
+                  // Contar quantos pontos têm este valor Y
+                  const pointsWithThisY = pointsInGroup.filter((d) => d.predicted === payload.predicted)
+                  const isMultipleWithSameY = pointsWithThisY.length > 1
+
+                  // Se há múltiplos valores Y, distribuir verticalmente
                   let cyOffset = cy
-                  if (pointsInDate > 1) {
-                    const spreadAmount = 12
-                    cyOffset = cy + (indexInDate - (pointsInDate - 1) / 2) * spreadAmount
+                  if (uniqueYValues.length > 1) {
+                    const yIndex = uniqueYValues.indexOf(payload.predicted)
+                    const spreadAmount = 20
+                    cyOffset = cy + (yIndex - (uniqueYValues.length - 1) / 2) * spreadAmount
                   }
+
+                  // Aumentar tamanho e opacidade se há múltiplos com mesmo Y
+                  const radius = isMultipleWithSameY ? 6 : 4
+                  const opacity = isMultipleWithSameY ? 0.7 : 1
+                  const stroke = isMultipleWithSameY ? 'white' : 'none'
+                  const strokeWidth = isMultipleWithSameY ? 2 : 0
 
                   return (
                     <circle
                       cx={cx}
                       cy={cyOffset}
-                      r={pointsInDate > 1 ? 5 : 4}
+                      r={radius}
                       fill="#2563eb"
-                      opacity={pointsInDate > 1 ? 0.8 : 1}
-                      stroke={pointsInDate > 1 ? 'white' : 'none'}
-                      strokeWidth={pointsInDate > 1 ? 2 : 0}
+                      opacity={opacity}
+                      stroke={stroke}
+                      strokeWidth={strokeWidth}
                     />
                   )
                 }}

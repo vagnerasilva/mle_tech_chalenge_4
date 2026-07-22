@@ -319,6 +319,11 @@
   font-weight: 600;
 }
 
+.history-table .weekend {
+  color: #8b5cf6;
+  font-weight: 600;
+}
+
 /* CTA Section */
 .cta {
   text-align: center;
