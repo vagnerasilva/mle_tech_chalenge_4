@@ -94,11 +94,12 @@ class ModelSummaryStatsResponse(BaseModel):
 
 class PendingValidationResponse(BaseModel):
     """Resposta da validação automática de predições pendentes."""
-    
-    total_pending: int = Field(..., description="Total de predições pendentes encontradas")
+
+    total_pending: int = Field(..., description="Total de predições pendentes encontradas (excluindo FDS)")
     updated: int = Field(..., description="Quantas foram atualizadas com sucesso")
     pending: int = Field(..., description="Quantas ainda não têm preço real após essa tentativa")
     failed: int = Field(..., description="Quantas falharam por erro de execução durante a validação")
+    skipped_fds: int = Field(default=0, description="Quantas foram ignoradas por serem datas de fim de semana")
     updated_records: list[MetricRecordResponse] = Field(..., description="Detalhes dos registros atualizados")
     
     model_config = ConfigDict(
