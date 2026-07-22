@@ -29,6 +29,6 @@ services:
       - key: APP_FEATURE_COLS
         value: '["Close", "High", "Low", "Open", "Volume"]'
       - key: APP_RATE_LIMIT_MAX_REQUESTS
-        value: "10"
+        value: "100"
       - key: APP_RATE_LIMIT_WINDOW_SECONDS
         value: "300"
