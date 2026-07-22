@@ -1,4 +1,5 @@
 import datetime
+import time
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -24,7 +25,20 @@ class PredictionService:
         try:
             price, prediction_date = inference.predict_next_close(symbol, self.settings)
         except InsufficientDataError as exc:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+        except Exception as exc:
+            # Capturar erros de rate limit ou conexão do yfinance
+            error_str = str(exc).lower()
+            if 'rate limit' in error_str or 'too many requests' in error_str:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="yfinance rate limited. Please try again later."
+                ) from exc
+            # Outros erros
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate prediction. Please try again later."
+            ) from exc
         
         # Salva a predição no banco de dados para monitoramento
         if self.db:
