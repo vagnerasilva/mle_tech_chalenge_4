@@ -62,8 +62,11 @@ class ValidationSummaryResponse(BaseModel):
 
 class ModelSummaryStatsResponse(BaseModel):
     """Estatísticas agregadas do desempenho do modelo."""
-    
+
     total_predictions: int
+    validated: int = Field(..., description="Quantas predições têm preço real")
+    pending: int = Field(..., description="Quantas predições ainda não têm preço real")
+    success_rate: float = Field(..., description="Taxa de acerto (%)")
     avg_mae: float
     avg_rmse: float
     avg_mape: float
@@ -72,12 +75,15 @@ class ModelSummaryStatsResponse(BaseModel):
     max_mae: float
     min_mape: float
     max_mape: float
-    
+
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
                 {
                     "total_predictions": 45,
+                    "validated": 23,
+                    "pending": 22,
+                    "success_rate": 51.1,
                     "avg_mae": 0.1234,
                     "avg_rmse": 0.1456,
                     "avg_mape": 3.45,
