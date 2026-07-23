@@ -227,10 +227,14 @@ class ModelMonitoringService:
         validated = len(validated_records)
         pending = len([r for r in records if r.actual_close is None])
 
-        # Taxa de acerto: 100% - MAPE do modelo (1.94% - avaliação offline)
-        # Usa o MAPE da avaliação do modelo, não o MAPE agregado das validações
-        model_mape = 1.94
-        success_rate = max(0.0, 100.0 - model_mape)
+        # Taxa de acerto: 100% - MAPE médio das predições reais validadas
+        # Reflete o desempenho real em produção, não a avaliação de treinamento
+        validated_mape_values = [r.mape for r in validated_records if r.mape is not None]
+        if validated_mape_values:
+            avg_production_mape = float(np.mean(validated_mape_values))
+            success_rate = max(0.0, 100.0 - avg_production_mape)
+        else:
+            success_rate = 0.0
 
         return {
             "total_predictions": len(records),
