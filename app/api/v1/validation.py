@@ -44,9 +44,15 @@ def validate_all_pending(
     ```
     """
     from app.models.metrics import ModelMetrics
-    
+
+    # Função para verificar se é fim de semana (sábado ou domingo)
+    def is_weekend(prediction_date):
+        # prediction_date é um objeto date, weekday() retorna: 0=seg, 5=sab, 6=dom
+        day_of_week = prediction_date.weekday()
+        return day_of_week in [5, 6]  # sábado (5), domingo (6)
+
     # Busca todos os registros pendentes ou sem métricas calculadas
-    pending_records = (
+    all_pending_records = (
         db.query(ModelMetrics)
         .filter(
             (ModelMetrics.actual_close == None) |
@@ -58,11 +64,15 @@ def validate_all_pending(
         )
         .all()
     )
-    
+
+    # Filtrar apenas os registros que NÃO são de fim de semana
+    pending_records = [r for r in all_pending_records if not is_weekend(r.prediction_date)]
+    fds_count = len(all_pending_records) - len(pending_records)
+
     updated_records = []
     pending_count = 0
     failed_count = 0
-    
+
     for record in pending_records:
         try:
             # Tenta buscar o preço real
@@ -96,12 +106,13 @@ def validate_all_pending(
     
     # Commit de todos os registros atualizados
     db.commit()
-    
+
     return PendingValidationResponse(
         total_pending=len(pending_records),
         updated=len(updated_records),
         pending=pending_count,
         failed=failed_count,
+        skipped_fds=fds_count,
         updated_records=updated_records,
     )
 
