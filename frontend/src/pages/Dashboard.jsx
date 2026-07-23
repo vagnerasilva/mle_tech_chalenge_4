@@ -195,7 +195,7 @@ export default function Dashboard() {
             />
             <StatBox
               title="Taxa de Acerto"
-              value={statsApi.data.success_rate?.toFixed(1) + '%' || 'N/A'}
+              value={statsApi.data.success_rate !== undefined ? statsApi.data.success_rate.toFixed(1) + '%' : 'N/A'}
               icon="🎯"
             />
           </div>
