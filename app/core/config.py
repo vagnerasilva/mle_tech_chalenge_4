@@ -30,7 +30,8 @@ class Settings(BaseSettings):
 
     # Rate Limiting
     # Proteção contra abuso: máximo de requisições por IP em uma janela de tempo
-    rate_limit_max_requests: int = 10  # Máximo 10 requisições
+    # Aumentado para 100 para suportar frontend complexo com múltiplos usuários
+    rate_limit_max_requests: int = 100  # Máximo 100 requisições
     rate_limit_window_seconds: int = 300  # Janela de 5 minutos (300 seg)
 
     @property

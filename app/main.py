@@ -50,11 +50,11 @@ app.add_middleware(
 async def rate_limit_middleware(request: Request, call_next):
     """Middleware de rate limiting — máximo 10 requisições por 5 minutos por IP.
 
-    Aplica a todas as rotas exceto /health e /readiness (monitoramento).
+    Aplica a todas as rotas exceto /health, /readiness (monitoramento) e /predict (frontend).
     Rejeita requisições excedentes com 429 Too Many Requests.
     """
-    # Excluir health checks de rate limiting (usado por monitoramento contínuo)
-    if request.url.path in ("/health", "/readiness"):
+    # Excluir health checks e predict da rota de rate limiting
+    if request.url.path in ("/health", "/readiness") or request.url.path.startswith("/api/v1/predict"):
         return await call_next(request)
 
     # Extrair IP do cliente
