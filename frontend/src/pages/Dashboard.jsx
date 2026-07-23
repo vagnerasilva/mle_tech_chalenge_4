@@ -70,9 +70,10 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Métricas do Modelo */}
+      {/* Desempenho de Treinamento */}
       <section className="metrics-grid">
-        <h2>📊 Performance do Modelo</h2>
+        <h2>📊 Desempenho de Treinamento</h2>
+        <p className="section-subtitle">Avaliação offline no conjunto de teste (offline evaluation)</p>
 
         {metricsApi.loading ? (
           <div className="loading">⏳ Carregando métricas...</div>
@@ -98,6 +99,41 @@ export default function Dashboard() {
             <MetricCard
               label="Acurácia Direcional"
               value={metricsApi.data.directional_accuracy?.toFixed(2) + '%'}
+              description="Capacidade de prever direção"
+            />
+          </div>
+        ) : null}
+      </section>
+
+      {/* Desempenho em Produção */}
+      <section className="metrics-grid">
+        <h2>🎯 Desempenho em Produção</h2>
+        <p className="section-subtitle">Métricas das predições reais validadas (online evaluation)</p>
+
+        {statsApi.loading ? (
+          <div className="loading">⏳ Carregando métricas...</div>
+        ) : statsApi.error ? (
+          <div className="error">❌ Erro ao carregar: {statsApi.error}</div>
+        ) : statsApi.data ? (
+          <div className="metrics">
+            <MetricCard
+              label="MAE"
+              value={statsApi.data.avg_mae?.toFixed(4)}
+              description="Erro Absoluto Médio"
+            />
+            <MetricCard
+              label="RMSE"
+              value={statsApi.data.avg_rmse?.toFixed(4)}
+              description="Raiz do Erro Quadrático Médio"
+            />
+            <MetricCard
+              label="MAPE"
+              value={statsApi.data.avg_mape?.toFixed(2) + '%'}
+              description="Erro Percentual Médio Absoluto"
+            />
+            <MetricCard
+              label="Acurácia Direcional"
+              value={statsApi.data.avg_directional_accuracy?.toFixed(2) + '%'}
               description="Capacidade de prever direção"
             />
           </div>
@@ -168,9 +204,10 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Estatísticas Gerais */}
+      {/* Estatísticas de Produção */}
       <section className="stats-section">
-        <h2>📈 Estatísticas Gerais</h2>
+        <h2>📊 Estatísticas de Produção</h2>
+        <p className="section-subtitle">Resumo das predições reais validadas em operação</p>
 
         {statsApi.loading ? (
           <div className="loading">⏳ Carregando estatísticas...</div>
