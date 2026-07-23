@@ -227,10 +227,11 @@ class ModelMonitoringService:
         validated = len(validated_records)
         pending = len([r for r in records if r.actual_close is None])
 
-        # Taxa de acerto: porcentagem de predições validadas que acertaram a direção
-        if validated > 0:
-            correct_predictions = len([r for r in validated_records if r.directional_accuracy == 1.0])
-            success_rate = (correct_predictions / validated * 100)
+        # Taxa de acerto: 100% - MAPE médio (quanto menor o erro, maior a taxa de acerto)
+        validated_mape_values = [r.mape for r in validated_records if r.mape is not None]
+        if validated_mape_values:
+            avg_mape = float(np.mean(validated_mape_values))
+            success_rate = max(0.0, 100.0 - avg_mape)  # Não pode ser negativa
         else:
             success_rate = 0.0
 
