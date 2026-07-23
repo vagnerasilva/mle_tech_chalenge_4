@@ -196,9 +196,16 @@ class ModelMonitoringService:
         rmse_values = [r.rmse for r in records if r.rmse is not None]
         mape_values = [r.mape for r in records if r.mape is not None]
         dir_acc_values = [r.directional_accuracy for r in records if r.directional_accuracy is not None]
-        
+
+        validated = len([r for r in records if r.actual_close is not None])
+        pending = len([r for r in records if r.actual_close is None])
+        success_rate = (validated / len(records) * 100) if records else 0.0
+
         return {
             "total_predictions": len(records),
+            "validated": validated,
+            "pending": pending,
+            "success_rate": float(success_rate),
             "avg_mae": float(np.mean(mae_values)) if mae_values else 0.0,
             "avg_rmse": float(np.mean(rmse_values)) if rmse_values else 0.0,
             "avg_mape": float(np.mean(mape_values)) if mape_values else 0.0,
