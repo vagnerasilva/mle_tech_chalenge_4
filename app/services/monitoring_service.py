@@ -223,9 +223,16 @@ class ModelMonitoringService:
         mape_values = [r.mape for r in records if r.mape is not None]
         dir_acc_values = [r.directional_accuracy for r in records if r.directional_accuracy is not None]
 
-        validated = len([r for r in records if r.actual_close is not None])
+        validated_records = [r for r in records if r.actual_close is not None]
+        validated = len(validated_records)
         pending = len([r for r in records if r.actual_close is None])
-        success_rate = (validated / len(records) * 100) if records else 0.0
+
+        # Taxa de acerto: porcentagem de predições validadas que acertaram a direção
+        if validated > 0:
+            correct_predictions = len([r for r in validated_records if r.directional_accuracy == 1.0])
+            success_rate = (correct_predictions / validated * 100)
+        else:
+            success_rate = 0.0
 
         return {
             "total_predictions": len(records),
