@@ -9,6 +9,12 @@ from sqlalchemy.orm import Session
 from app.models.metrics import ModelMetrics
 
 
+def is_weekend(date: datetime.date) -> bool:
+    """Verifica se a data é fim de semana (sábado ou domingo)."""
+    day_of_week = date.weekday()
+    return day_of_week in (5, 6)  # 5 = sábado, 6 = domingo
+
+
 class ModelMonitoringService:
     """
     Serviço para monitorar o desempenho do modelo LSTM.
@@ -176,22 +182,42 @@ class ModelMonitoringService:
     ) -> dict:
         """
         Calcula estatísticas agregadas das métricas para BBD.
-        
+        Filtra predições de fim de semana que não requerem validação.
+
         Args:
             db: Sessão SQLAlchemy
-        
+
         Returns:
             Dict com média de mae, rmse, mape, directional_accuracy
         """
         SYMBOL = "BBD"
         query = db.query(ModelMetrics)
         query = query.filter(ModelMetrics.symbol == SYMBOL)
-        
-        records = query.all()
-        
-        if not records:
+
+        all_records = query.all()
+
+        if not all_records:
             return {}
-        
+
+        # Filtrar apenas dias úteis (segunda a sexta)
+        records = [r for r in all_records if not is_weekend(r.prediction_date)]
+
+        if not records:
+            return {
+                "total_predictions": len(all_records),
+                "validated": 0,
+                "pending": 0,
+                "success_rate": 0.0,
+                "avg_mae": 0.0,
+                "avg_rmse": 0.0,
+                "avg_mape": 0.0,
+                "avg_directional_accuracy": 0.0,
+                "min_mae": 0.0,
+                "max_mae": 0.0,
+                "min_mape": 0.0,
+                "max_mape": 0.0,
+            }
+
         mae_values = [r.mae for r in records if r.mae is not None]
         rmse_values = [r.rmse for r in records if r.rmse is not None]
         mape_values = [r.mape for r in records if r.mape is not None]
