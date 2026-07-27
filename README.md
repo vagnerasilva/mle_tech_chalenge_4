@@ -191,6 +191,12 @@ mle_tech_chalenge_4/
 └── render.yaml
 ```
 
-## Observacao
+# 🎥 Vídeo de Apresentação
+[Acesse aqui](https://drive.google.com/file/d/1TH3DYvizt4EK0DsREHkX-L_sfjcHJhtP/view?usp=sharing)
 
-Algumas seções antigas do README misturavam outra versao do projeto, com rotas e comandos que nao existem mais neste repositorio. Esta versao resume apenas o que esta implementado hoje.
+# Link da Aplicação 
+[https://mle-tech-chalenge-4.onrender.com/](https://mle-tech-chalenge-4.onrender.com/)
+
+
+# Doc das rotas da api
+[https://mle-tech-chalenge-4.onrender.com/docs](https://mle-tech-chalenge-4.onrender.com/docs)
