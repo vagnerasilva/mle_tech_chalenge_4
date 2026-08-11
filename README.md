@@ -200,3 +200,7 @@ mle_tech_chalenge_4/
 
 # Doc das rotas da api
 [https://mle-tech-chalenge-4.onrender.com/docs](https://mle-tech-chalenge-4.onrender.com/docs)
+
+# Notas
+
+![alt text](image.png)
